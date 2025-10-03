@@ -46,11 +46,12 @@ class _RaceAnalysisPageState extends State<RaceAnalysisPage> {
 
   Event? _currentEvent;
   int _currentCheckPointIndex = 0;
-  final Map<CheckPoint, Duration> _recordedTimes = {};
+
+  // New data model for storing race progression
+  final List<RaceSegment> _recordedSegments = [];
 
   // New data model for lap-based attribute tracking
   List<LapData> _lapData = [];
-  int _lapCount = 0;
   int _attributeEditingLapIndex = 0;
 
   bool _isSlowMotion = false;
@@ -209,17 +210,16 @@ class _RaceAnalysisPageState extends State<RaceAnalysisPage> {
     _controller?.pause();
     HapticFeedback.heavyImpact();
     setState(() {
-      _recordedTimes.clear();
+      _recordedSegments.clear();
       _currentCheckPointIndex = 0;
       _isSlowMotion = false;
       _controller?.setPlaybackSpeed(1.0);
       _attributeEditingLapIndex = 0;
 
       // Initialize lap data based on the event
-      _lapCount =
-          _currentEvent?.checkPoints.where((cp) => cp == CheckPoint.turn).length ?? 0;
-      _lapCount += 1; // Add the final lap to the finish
-      _lapData = List.generate(_lapCount, (_) => LapData(), growable: false);
+      final lapCount =
+          (_currentEvent?.checkPoints.where((cp) => cp == CheckPoint.turn).length ?? 0) + 1;
+      _lapData = List.generate(lapCount, (_) => LapData(), growable: false);
     });
   }
 
@@ -231,7 +231,9 @@ class _RaceAnalysisPageState extends State<RaceAnalysisPage> {
     HapticFeedback.mediumImpact();
 
     setState(() {
-      _recordedTimes[nextCheckPoint] = position;
+      final segment = RaceSegment(checkPoint: nextCheckPoint, time: position);
+      _recordedSegments.add(segment);
+
       if (_currentCheckPointIndex < _currentEvent!.checkPoints.length - 1) {
         _currentCheckPointIndex++;
       }
@@ -239,29 +241,17 @@ class _RaceAnalysisPageState extends State<RaceAnalysisPage> {
   }
 
   void _rewindAndUndo() {
-    if (_currentCheckPointIndex == 0 && _recordedTimes.isEmpty) return;
+    if (_recordedSegments.isEmpty) return;
 
     HapticFeedback.mediumImpact();
 
-    CheckPoint checkpointToUndo;
-    bool wasLastCheckpoint =
-        _currentCheckPointIndex == _currentEvent!.checkPoints.length - 1 &&
-            _recordedTimes
-                .containsKey(_currentEvent!.checkPoints[_currentCheckPointIndex]);
-
-    if (wasLastCheckpoint) {
-      checkpointToUndo = _currentEvent!.checkPoints[_currentCheckPointIndex];
-    } else {
-      checkpointToUndo = _currentEvent!.checkPoints[_currentCheckPointIndex - 1];
-    }
-
     setState(() {
-      _recordedTimes.remove(checkpointToUndo);
-      if (!wasLastCheckpoint) {
+      _recordedSegments.removeLast();
+      if (_currentCheckPointIndex > 0) {
         _currentCheckPointIndex--;
       }
       // Note: This simple undo doesn't clear attribute data for the undone lap.
-      // A more robust implementation might be needed if this becomes an issue.
+      // This is now the desired behavior as timing and attributes are decoupled.
     });
 
     final newPosition = _controller!.value.position - const Duration(seconds: 5);
@@ -281,23 +271,11 @@ class _RaceAnalysisPageState extends State<RaceAnalysisPage> {
     if (_currentEvent == null) return;
     _controller?.pause();
 
-    // Convert our List<LapData> to the Map<CheckPoint, LapData> that ResultsPage expects.
-    final lapDataForResults = <CheckPoint, LapData>{};
-    final lapEndCheckpoints = _currentEvent!.checkPoints
-        .where((cp) => cp == CheckPoint.turn || cp == CheckPoint.finish)
-        .toList();
-
-    for (int i = 0; i < _lapData.length; i++) {
-      if (i < lapEndCheckpoints.length) {
-        lapDataForResults[lapEndCheckpoints[i]] = _lapData[i];
-      }
-    }
-
     Navigator.of(context).push(
       MaterialPageRoute(
         builder: (context) => ResultsPage(
-          recordedTimes: _recordedTimes,
-          lapData: lapDataForResults,
+          recordedSegments: _recordedSegments,
+          lapData: _lapData,
           event: _currentEvent!,
         ),
       ),
@@ -310,7 +288,7 @@ class _RaceAnalysisPageState extends State<RaceAnalysisPage> {
       appBar: AppBar(
         title: Text(_currentEvent?.name ?? 'Swim Analyzer'),
         actions: [
-          if (_recordedTimes.isNotEmpty)
+          if (_recordedSegments.isNotEmpty)
             IconButton(
               icon: const Icon(Icons.list_alt),
               onPressed: _viewResults,
@@ -386,8 +364,12 @@ class _RaceAnalysisPageState extends State<RaceAnalysisPage> {
   }
 
   Widget _buildTimingControls() {
-    final nextCheckPoint = _currentEvent!.checkPoints[_currentCheckPointIndex];
-    final isFinished = _recordedTimes.containsKey(CheckPoint.finish);
+    final isFinished =
+        _recordedSegments.any((s) => s.checkPoint == CheckPoint.finish);
+    final nextCheckPointName = isFinished
+        ? 'Finished'
+        : 'Record ${_getDistanceForCheckpoint(_currentEvent!.checkPoints[_currentCheckPointIndex], _currentCheckPointIndex)}';
+
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20.0),
@@ -415,7 +397,7 @@ class _RaceAnalysisPageState extends State<RaceAnalysisPage> {
               ),
               const SizedBox(height: 8),
               Text(
-                isFinished ? 'Finished' : 'Record ${nextCheckPoint.name}',
+                nextCheckPointName,
                 style: const TextStyle(
                     color: Colors.white, fontWeight: FontWeight.bold),
               ),
@@ -435,30 +417,51 @@ class _RaceAnalysisPageState extends State<RaceAnalysisPage> {
     );
   }
 
+  String _getDistanceForCheckpoint(CheckPoint cp, int index) {
+    if (_currentEvent == null) return cp.name;
+
+    int turnCount = 0;
+    // Count how many turns have been recorded so far
+    for (int i = 0; i < _currentCheckPointIndex; i++) {
+        if (_currentEvent!.checkPoints[i] == CheckPoint.turn) {
+            turnCount++;
+        }
+    }
+
+    final lapLength = _currentEvent!.poolLength;
+
+    switch (cp) {
+      case CheckPoint.start:
+        return '0m';
+      case CheckPoint.offTheBlock:
+        return 'Off Block';
+      case CheckPoint.breakOut:
+        return 'Breakout'; // Keep it simple on the button
+      case CheckPoint.fifteenMeterMark:
+        return '${turnCount * lapLength + 15}m';
+      case CheckPoint.turn:
+        return '${(turnCount + 1) * lapLength}m';
+      case CheckPoint.finish:
+        return '${_currentEvent!.distance}m';
+    }
+  }
+
+
   void _seekToLapStart(int lapIndex) {
     if (_currentEvent == null) return;
 
-    final turns =
-        _currentEvent!.checkPoints.where((cp) => cp == CheckPoint.turn).toList();
-    CheckPoint startCheckpoint;
+    final lapStartSegments = _recordedSegments
+        .where((s) => s.checkPoint == CheckPoint.start || s.checkPoint == CheckPoint.turn)
+        .toList();
 
-    if (lapIndex == 0) {
-      startCheckpoint = CheckPoint.start;
-    } else if (lapIndex > 0 && lapIndex <= turns.length) {
-      startCheckpoint = turns[lapIndex - 1];
-    } else {
-      return; // Invalid lap index
-    }
-
-    final seekTime = _recordedTimes[startCheckpoint];
-    if (seekTime != null) {
-      _controller?.seekTo(seekTime);
+    if (lapIndex < lapStartSegments.length) {
+      _controller?.seekTo(lapStartSegments[lapIndex].time);
     }
   }
 
   void _changeAttributeLap(int delta) {
     final newIndex = _attributeEditingLapIndex + delta;
-    if (newIndex >= 0 && newIndex < _lapCount) {
+    if (newIndex >= 0 && newIndex < _lapData.length) {
       setState(() {
         _attributeEditingLapIndex = newIndex;
       });
@@ -491,7 +494,7 @@ class _RaceAnalysisPageState extends State<RaceAnalysisPage> {
             ),
             IconButton(
               icon: const Icon(Icons.chevron_right),
-              onPressed: _attributeEditingLapIndex < _lapCount - 1
+              onPressed: _attributeEditingLapIndex < _lapData.length - 1
                   ? () => _changeAttributeLap(1)
                   : null,
               color: Colors.white,
@@ -508,20 +511,26 @@ class _RaceAnalysisPageState extends State<RaceAnalysisPage> {
                 label: 'Dolphin Kicks',
                 count: currentLap.dolphinKickCount,
                 onIncrement: () => setState(() => currentLap.dolphinKickCount++),
-                onDecrement: () => setState(() => currentLap.dolphinKickCount--),
+                onDecrement: () => setState(() {
+                  if (currentLap.dolphinKickCount > 0) currentLap.dolphinKickCount--;
+                }),
               ),
             _buildAttributeCounter(
               label: 'Strokes',
               count: currentLap.strokeCount,
               onIncrement: () => setState(() => currentLap.strokeCount++),
-              onDecrement: () => setState(() => currentLap.strokeCount--),
+              onDecrement: () => setState(() {
+                if (currentLap.strokeCount > 0) currentLap.strokeCount--;
+              }),
             ),
             if (!isBreaststroke)
               _buildAttributeCounter(
                 label: 'Breaths',
                 count: currentLap.breathCount,
                 onIncrement: () => setState(() => currentLap.breathCount++),
-                onDecrement: () => setState(() => currentLap.breathCount--),
+                onDecrement: () => setState(() {
+                  if (currentLap.breathCount > 0) currentLap.breathCount--;
+                }),
               ),
           ],
         ),
@@ -540,25 +549,31 @@ class _RaceAnalysisPageState extends State<RaceAnalysisPage> {
       children: [
         Text(label.toUpperCase(),
             style: const TextStyle(
-                color: Colors.white70, fontSize: 12, fontWeight: FontWeight.bold)),
+                color: Colors.white70,
+                fontSize: 12,
+                fontWeight: FontWeight.bold)),
         Text('$count',
             style: const TextStyle(
-                color: Colors.white, fontSize: 28, fontWeight: FontWeight.bold)),
+                color: Colors.white,
+                fontSize: 28,
+                fontWeight: FontWeight.bold)),
         Row(
           mainAxisSize: MainAxisSize.min,
           children: [
             IconButton(
-                icon: const Icon(Icons.remove_circle_outline),
-                onPressed: count > 0 ? onDecrement : null,
-                iconSize: 24,
-                color: Colors.white),
+              icon: const Icon(Icons.remove_circle_outline),
+              onPressed: onDecrement,
+              iconSize: 30,
+              color: Colors.white70,
+            ),
             IconButton(
-                icon: const Icon(Icons.add_circle_outline),
-                onPressed: onIncrement,
-                iconSize: 24,
-                color: Colors.white),
+              icon: const Icon(Icons.add_circle_outline),
+              onPressed: onIncrement,
+              iconSize: 30,
+              color: Colors.white,
+            ),
           ],
-        )
+        ),
       ],
     );
   }
@@ -570,28 +585,32 @@ class _RaceAnalysisPageState extends State<RaceAnalysisPage> {
         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
         children: [
           IconButton(
-              icon: const Icon(Icons.restart_alt),
-              onPressed: _resetAnalysis,
-              tooltip: 'Reset Analysis',
-              color: Colors.white),
+            icon: const Icon(Icons.restart_alt),
+            onPressed: _resetAnalysis,
+            tooltip: 'Reset Analysis',
+            color: Colors.white,
+          ),
           IconButton(
             icon: Icon(_controller!.value.isPlaying
                 ? Icons.pause_circle_filled
                 : Icons.play_circle_filled),
-            onPressed: () => setState(() {
-              _controller!.value.isPlaying
-                  ? _controller!.pause()
-                  : _controller!.play();
-            }),
+            onPressed: () {
+              setState(() {
+                _controller!.value.isPlaying
+                    ? _controller!.pause()
+                    : _controller!.play();
+              });
+            },
             iconSize: 50,
             tooltip: 'Play/Pause',
             color: Colors.white,
           ),
           IconButton(
-              icon: const Icon(Icons.video_library),
-              onPressed: _pickVideo,
-              tooltip: 'Load New Video',
-              color: Colors.white),
+            icon: const Icon(Icons.video_library),
+            onPressed: _pickVideo,
+            tooltip: 'Load New Video',
+            color: Colors.white,
+          ),
         ],
       ),
     );

@@ -1,99 +1,65 @@
 import 'package:flutter/foundation.dart';
 
-// New enum for the swim strokes
+/// Represents a single timed event in a race, like a breakout or a turn.
+class RaceSegment {
+  final CheckPoint checkPoint;
+  final Duration time;
+
+  RaceSegment({required this.checkPoint, required this.time});
+}
+
+
+/// Data holder for attributes of a single lap.
+class LapData {
+  int strokeCount = 0;
+  int breathCount = 0;
+  int dolphinKickCount = 0;
+}
+
+/// Enum representing the different swimming strokes.
 enum Stroke {
   freestyle,
   backstroke,
-  butterfly,
-  breaststroke;
+  breaststroke,
+  butterfly;
 
   String get displayName {
     return name[0].toUpperCase() + name.substring(1);
   }
 }
 
-/// The different types of checkpoints in a race.
+/// Enum for the different checkpoints in a race.
 enum CheckPoint {
   start,
   offTheBlock,
   breakOut,
   fifteenMeterMark,
   turn,
-  finish;
-
-  /// A more readable name for UI display.
-  String get displayName {
-    // A simple way to capitalize the first letter of the enum name.
-    return name[0].toUpperCase() + name.substring(1);
-  }
+  finish,
 }
 
-enum SwimAttribute {
-  /// The number of strokes taken in a length.
-  strokeCount,
-
-  /// The number of underwater dolphin kicks after a start or turn.
-  dolphinKickCount,
-
-  /// The number of breaths taken in a length.
-  breathCount;
-
-  /// A more readable name for UI display.
-  String get displayName {
-    switch (this) {
-      case SwimAttribute.strokeCount:
-        return 'Stroke Count';
-      case SwimAttribute.dolphinKickCount:
-        return 'Dolphin Kicks';
-      case SwimAttribute.breathCount:
-        return 'Breaths';
-    }
-  }
-}
-
-/// A data class to hold the tracked attributes for a single lap.
-class LapData {
-  int strokeCount;
-  int dolphinKickCount;
-  int breathCount;
-
-  LapData({
-    this.strokeCount = 0,
-    this.dolphinKickCount = 0,
-    this.breathCount = 0,
-  });
-
-  /// Creates a copy of this LapData object, which is useful for resetting.
-  LapData copy() {
-    return LapData(
-      strokeCount: strokeCount,
-      dolphinKickCount: dolphinKickCount,
-      breathCount: breathCount,
-    );
-  }
-}
-
-/// Abstract class representing a generic swimming event.
-@immutable
+/// Abstract representation of a swimming race event.
 abstract class Event {
-  const Event({required this.stroke});
-
-  final Stroke stroke;
-
-  /// The name of the event, e.g., "50m Freestyle".
   String get name;
-
-  /// The sequence of checkpoints for this event.
+  int get distance;
+  int get poolLength;
+  Stroke get stroke;
   List<CheckPoint> get checkPoints;
 }
 
-/// A concrete implementation for a 50-meter race.
-@immutable
-class FiftyMeterRace extends Event {
-  const FiftyMeterRace({required super.stroke});
+/// A 50-meter race, typically in a 25m pool (short course).
+class FiftyMeterRace implements Event {
+  @override
+  final Stroke stroke;
+
+  FiftyMeterRace({required this.stroke});
 
   @override
   String get name => '50m ${stroke.displayName}';
+  @override
+  int get distance => 50;
+  @override
+  int get poolLength => 25;
 
   @override
   List<CheckPoint> get checkPoints => [
@@ -108,22 +74,35 @@ class FiftyMeterRace extends Event {
       ];
 }
 
-/// A concrete implementation for a 100-meter race.
-@immutable
-class HundredMetersRace extends Event {
-  const HundredMetersRace({required super.stroke});
+/// A 100-meter race, typically in a 25m pool (short course).
+class HundredMetersRace implements Event {
+  @override
+  final Stroke stroke;
+
+  HundredMetersRace({required this.stroke});
 
   @override
   String get name => '100m ${stroke.displayName}';
+  @override
+  int get distance => 100;
+  @override
+  int get poolLength => 25;
 
   @override
   List<CheckPoint> get checkPoints => [
         CheckPoint.start,
+        CheckPoint.offTheBlock,
         CheckPoint.breakOut,
         CheckPoint.fifteenMeterMark,
         CheckPoint.turn, // 25m
+        CheckPoint.breakOut,
+        CheckPoint.fifteenMeterMark,
         CheckPoint.turn, // 50m
+        CheckPoint.breakOut,
+        CheckPoint.fifteenMeterMark,
         CheckPoint.turn, // 75m
-        CheckPoint.finish,
+        CheckPoint.breakOut,
+        CheckPoint.fifteenMeterMark,
+        CheckPoint.finish, // 100m
       ];
 }

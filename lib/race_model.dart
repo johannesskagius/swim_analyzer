@@ -1,22 +1,5 @@
-import 'package:flutter/foundation.dart';
+library race_model;
 
-/// Represents a single timed event in a race, like a breakout or a turn.
-class RaceSegment {
-  final CheckPoint checkPoint;
-  final Duration time;
-
-  RaceSegment({required this.checkPoint, required this.time});
-}
-
-
-/// Data holder for attributes of a single lap.
-class LapData {
-  int strokeCount = 0;
-  int breathCount = 0;
-  int dolphinKickCount = 0;
-}
-
-/// Enum representing the different swimming strokes.
 enum Stroke {
   freestyle,
   backstroke,
@@ -24,11 +7,35 @@ enum Stroke {
   butterfly;
 
   String get displayName {
-    return name[0].toUpperCase() + name.substring(1);
+    switch (this) {
+      case Stroke.freestyle:
+        return 'Freestyle';
+      case Stroke.backstroke:
+        return 'Backstroke';
+      case Stroke.breaststroke:
+        return 'Breaststroke';
+      case Stroke.butterfly:
+        return 'Butterfly';
+    }
   }
 }
 
-/// Enum for the different checkpoints in a race.
+/// A class to hold the attributes for a single interval between checkpoints.
+class IntervalAttributes {
+  int dolphinKickCount = 0;
+  int strokeCount = 0;
+  int breathCount = 0;
+}
+
+
+/// Represents a single recorded moment in a race.
+class RaceSegment {
+  final CheckPoint checkPoint;
+  final Duration time;
+
+  RaceSegment({required this.checkPoint, required this.time});
+}
+
 enum CheckPoint {
   start,
   offTheBlock,
@@ -38,21 +45,19 @@ enum CheckPoint {
   finish,
 }
 
-/// Abstract representation of a swimming race event.
 abstract class Event {
+  final Stroke stroke;
+
+  const Event({required this.stroke});
+
   String get name;
   int get distance;
   int get poolLength;
-  Stroke get stroke;
   List<CheckPoint> get checkPoints;
 }
 
-/// A 50-meter race, typically in a 25m pool (short course).
-class FiftyMeterRace implements Event {
-  @override
-  final Stroke stroke;
-
-  FiftyMeterRace({required this.stroke});
+class FiftyMeterRace extends Event {
+  const FiftyMeterRace({required super.stroke});
 
   @override
   String get name => '50m ${stroke.displayName}';
@@ -74,12 +79,8 @@ class FiftyMeterRace implements Event {
       ];
 }
 
-/// A 100-meter race, typically in a 25m pool (short course).
-class HundredMetersRace implements Event {
-  @override
-  final Stroke stroke;
-
-  HundredMetersRace({required this.stroke});
+class HundredMetersRace extends Event {
+  const HundredMetersRace({required super.stroke});
 
   @override
   String get name => '100m ${stroke.displayName}';

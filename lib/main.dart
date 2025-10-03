@@ -50,9 +50,9 @@ class _RaceAnalysisPageState extends State<RaceAnalysisPage> {
   // New data model for storing race progression
   final List<RaceSegment> _recordedSegments = [];
 
-  // New data model for lap-based attribute tracking
-  List<LapData> _lapData = [];
-  int _attributeEditingLapIndex = 0;
+  // New data model for interval-based attribute tracking
+  List<IntervalAttributes> _intervalAttributes = [];
+  int _attributeEditingIntervalIndex = 0;
 
   bool _isSlowMotion = false;
   _AnalysisMode _analysisMode = _AnalysisMode.timing;
@@ -214,12 +214,16 @@ class _RaceAnalysisPageState extends State<RaceAnalysisPage> {
       _currentCheckPointIndex = 0;
       _isSlowMotion = false;
       _controller?.setPlaybackSpeed(1.0);
-      _attributeEditingLapIndex = 0;
+      _attributeEditingIntervalIndex = 0;
 
-      // Initialize lap data based on the event
-      final lapCount =
-          (_currentEvent?.checkPoints.where((cp) => cp == CheckPoint.turn).length ?? 0) + 1;
-      _lapData = List.generate(lapCount, (_) => LapData(), growable: false);
+      // Initialize attribute data for each interval.
+      if (_currentEvent != null) {
+        final intervalCount = _currentEvent!.checkPoints.length - 1;
+        _intervalAttributes =
+            List.generate(intervalCount, (_) => IntervalAttributes());
+      } else {
+        _intervalAttributes = [];
+      }
     });
   }
 
@@ -246,15 +250,16 @@ class _RaceAnalysisPageState extends State<RaceAnalysisPage> {
     HapticFeedback.mediumImpact();
 
     setState(() {
+      // We no longer clear attributes on undo. They will persist.
       _recordedSegments.removeLast();
+
       if (_currentCheckPointIndex > 0) {
         _currentCheckPointIndex--;
       }
-      // Note: This simple undo doesn't clear attribute data for the undone lap.
-      // This is now the desired behavior as timing and attributes are decoupled.
     });
 
-    final newPosition = _controller!.value.position - const Duration(seconds: 5);
+    final newPosition =
+        _controller!.value.position - const Duration(seconds: 5);
     _controller?.seekTo(newPosition.isNegative ? Duration.zero : newPosition);
   }
 
@@ -275,7 +280,7 @@ class _RaceAnalysisPageState extends State<RaceAnalysisPage> {
       MaterialPageRoute(
         builder: (context) => ResultsPage(
           recordedSegments: _recordedSegments,
-          lapData: _lapData,
+          intervalAttributes: _intervalAttributes,
           event: _currentEvent!,
         ),
       ),
@@ -370,7 +375,6 @@ class _RaceAnalysisPageState extends State<RaceAnalysisPage> {
         ? 'Finished'
         : 'Record ${_getDistanceForCheckpoint(_currentEvent!.checkPoints[_currentCheckPointIndex], _currentCheckPointIndex)}';
 
-
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20.0),
       child: Row(
@@ -421,11 +425,11 @@ class _RaceAnalysisPageState extends State<RaceAnalysisPage> {
     if (_currentEvent == null) return cp.name;
 
     int turnCount = 0;
-    // Count how many turns have been recorded so far
-    for (int i = 0; i < _currentCheckPointIndex; i++) {
-        if (_currentEvent!.checkPoints[i] == CheckPoint.turn) {
-            turnCount++;
-        }
+    // Count how many turns have been passed up to the checkpoint at 'index'.
+    for (int i = 0; i < index; i++) {
+      if (_currentEvent!.checkPoints[i] == CheckPoint.turn) {
+        turnCount++;
+      }
     }
 
     final lapLength = _currentEvent!.poolLength;
@@ -436,7 +440,8 @@ class _RaceAnalysisPageState extends State<RaceAnalysisPage> {
       case CheckPoint.offTheBlock:
         return 'Off Block';
       case CheckPoint.breakOut:
-        return 'Breakout'; // Keep it simple on the button
+        // Use a simple name in timing mode, the results page will have the asterisk.
+        return 'Breakout';
       case CheckPoint.fifteenMeterMark:
         return '${turnCount * lapLength + 15}m';
       case CheckPoint.turn:
@@ -446,56 +451,65 @@ class _RaceAnalysisPageState extends State<RaceAnalysisPage> {
     }
   }
 
-
-  void _seekToLapStart(int lapIndex) {
-    if (_currentEvent == null) return;
-
-    final lapStartSegments = _recordedSegments
-        .where((s) => s.checkPoint == CheckPoint.start || s.checkPoint == CheckPoint.turn)
-        .toList();
-
-    if (lapIndex < lapStartSegments.length) {
-      _controller?.seekTo(lapStartSegments[lapIndex].time);
+  void _seekToIntervalStart(int intervalIndex) {
+    if (intervalIndex < _recordedSegments.length) {
+      _controller?.seekTo(_recordedSegments[intervalIndex].time);
     }
   }
 
-  void _changeAttributeLap(int delta) {
-    final newIndex = _attributeEditingLapIndex + delta;
-    if (newIndex >= 0 && newIndex < _lapData.length) {
+  void _changeAttributeInterval(int delta) {
+    final newIndex = _attributeEditingIntervalIndex + delta;
+    // You can only edit attributes for intervals that have been timed.
+    // An interval exists between two recorded segments.
+    if (newIndex >= 0 && newIndex < _recordedSegments.length - 1) {
       setState(() {
-        _attributeEditingLapIndex = newIndex;
+        _attributeEditingIntervalIndex = newIndex;
       });
-      _seekToLapStart(newIndex);
+      _seekToIntervalStart(newIndex);
     }
   }
 
   Widget _buildAttributeControls() {
-    if (_lapData.isEmpty || _currentEvent == null) return const SizedBox.shrink();
-    final currentLap = _lapData[_attributeEditingLapIndex];
+    // Attribute editing is only possible if at least one interval (two checkpoints) has been recorded.
+    if (_recordedSegments.length < 2 || _currentEvent == null) {
+      return const Text('Record at least one interval to edit attributes.', style: TextStyle(color: Colors.white70));
+    }
+
+    final currentAttributes = _intervalAttributes[_attributeEditingIntervalIndex];
     final bool isBreaststroke = _currentEvent!.stroke == Stroke.breaststroke;
+
+    final startCp = _currentEvent!.checkPoints[_attributeEditingIntervalIndex];
+    final endCp = _currentEvent!.checkPoints[_attributeEditingIntervalIndex + 1];
+
+    final startName = _getDistanceForCheckpoint(startCp, _attributeEditingIntervalIndex);
+    final endName = _getDistanceForCheckpoint(endCp, _attributeEditingIntervalIndex + 1);
+
+    final bool isUnderwater = (startCp == CheckPoint.offTheBlock || startCp == CheckPoint.turn) && endCp == CheckPoint.breakOut;
+    final bool isSwimming = !isUnderwater && startCp != CheckPoint.start && endCp != CheckPoint.offTheBlock;
+
 
     return Column(
       children: [
-        // Lap Navigator
+        // Interval Navigator
         Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             IconButton(
               icon: const Icon(Icons.chevron_left),
-              onPressed: _attributeEditingLapIndex > 0
-                  ? () => _changeAttributeLap(-1)
+              onPressed: _attributeEditingIntervalIndex > 0
+                  ? () => _changeAttributeInterval(-1)
                   : null,
               color: Colors.white,
             ),
             Text(
-              'EDITING LAP ${_attributeEditingLapIndex + 1}',
+              'EDITING: $startName -> $endName',
               style: const TextStyle(
                   color: Colors.white, fontWeight: FontWeight.bold),
             ),
             IconButton(
               icon: const Icon(Icons.chevron_right),
-              onPressed: _attributeEditingLapIndex < _lapData.length - 1
-                  ? () => _changeAttributeLap(1)
+              onPressed: _attributeEditingIntervalIndex < _recordedSegments.length - 2
+                  ? () => _changeAttributeInterval(1)
                   : null,
               color: Colors.white,
             ),
@@ -506,39 +520,34 @@ class _RaceAnalysisPageState extends State<RaceAnalysisPage> {
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceEvenly,
           children: [
-            if (!isBreaststroke)
+             if (isUnderwater && !isBreaststroke)
               _buildAttributeCounter(
                 label: 'Dolphin Kicks',
-                count: currentLap.dolphinKickCount,
-                onIncrement: () => setState(() => currentLap.dolphinKickCount++),
-                onDecrement: () => setState(() {
-                  if (currentLap.dolphinKickCount > 0) currentLap.dolphinKickCount--;
-                }),
+                count: currentAttributes.dolphinKickCount,
+                onIncrement: () => setState(() => currentAttributes.dolphinKickCount++),
+                onDecrement: () => setState(() => currentAttributes.dolphinKickCount--),
               ),
-            _buildAttributeCounter(
-              label: 'Strokes',
-              count: currentLap.strokeCount,
-              onIncrement: () => setState(() => currentLap.strokeCount++),
-              onDecrement: () => setState(() {
-                if (currentLap.strokeCount > 0) currentLap.strokeCount--;
-              }),
-            ),
-            if (!isBreaststroke)
+            if (isSwimming)
+              _buildAttributeCounter(
+                label: 'Strokes',
+                count: currentAttributes.strokeCount,
+                onIncrement: () => setState(() => currentAttributes.strokeCount++),
+                onDecrement: () => setState(() => currentAttributes.strokeCount--),
+              ),
+            if (isSwimming && !isBreaststroke)
               _buildAttributeCounter(
                 label: 'Breaths',
-                count: currentLap.breathCount,
-                onIncrement: () => setState(() => currentLap.breathCount++),
-                onDecrement: () => setState(() {
-                  if (currentLap.breathCount > 0) currentLap.breathCount--;
-                }),
+                count: currentAttributes.breathCount,
+                onIncrement: () => setState(() => currentAttributes.breathCount++),
+                onDecrement: () => setState(() => currentAttributes.breathCount--),
               ),
           ],
-        ),
+        )
       ],
     );
   }
 
-  Widget _buildAttributeCounter({
+    Widget _buildAttributeCounter({
     required String label,
     required int count,
     required VoidCallback onIncrement,
@@ -547,24 +556,24 @@ class _RaceAnalysisPageState extends State<RaceAnalysisPage> {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Text(label.toUpperCase(),
-            style: const TextStyle(
-                color: Colors.white70,
-                fontSize: 12,
-                fontWeight: FontWeight.bold)),
-        Text('$count',
-            style: const TextStyle(
-                color: Colors.white,
-                fontSize: 28,
-                fontWeight: FontWeight.bold)),
+        Text(
+          label.toUpperCase(),
+          style: const TextStyle(
+              color: Colors.white70, fontSize: 12, fontWeight: FontWeight.bold),
+        ),
         Row(
           mainAxisSize: MainAxisSize.min,
           children: [
             IconButton(
               icon: const Icon(Icons.remove_circle_outline),
-              onPressed: onDecrement,
+              onPressed: count > 0 ? onDecrement : null,
               iconSize: 30,
-              color: Colors.white70,
+              color: count > 0 ? Colors.white : Colors.white30,
+            ),
+            Text(
+              '$count',
+              style: const TextStyle(
+                  color: Colors.white, fontSize: 32, fontWeight: FontWeight.bold),
             ),
             IconButton(
               icon: const Icon(Icons.add_circle_outline),
@@ -577,6 +586,7 @@ class _RaceAnalysisPageState extends State<RaceAnalysisPage> {
       ],
     );
   }
+
 
   Widget _buildTransportControls() {
     return Padding(

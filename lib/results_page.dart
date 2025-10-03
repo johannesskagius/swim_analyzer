@@ -1,181 +1,254 @@
 import 'package:flutter/material.dart';
-import 'dart:math';
-
 import 'race_model.dart';
 
 class ResultsPage extends StatelessWidget {
   final List<RaceSegment> recordedSegments;
-  final List<LapData> lapData;
+  final List<IntervalAttributes> intervalAttributes;
   final Event event;
 
   const ResultsPage({
     super.key,
     required this.recordedSegments,
-    required this.lapData,
+    required this.intervalAttributes,
     required this.event,
   });
 
   @override
   Widget build(BuildContext context) {
-    String breakoutNote = '';
-    final rows = <DataRow>[];
-    Duration? lastTime;
-    int lapIndex = 0;
+    final bool isBreaststroke = event.stroke == Stroke.breaststroke;
+    final hasRecordedData = recordedSegments.isNotEmpty;
 
-    // Get the start time for split calculations
-    final startTime = recordedSegments
-        .firstWhere((s) => s.checkPoint == CheckPoint.start, orElse: () => recordedSegments.first)
-        .time;
-
-    for (int i = 0; i < recordedSegments.length; i++) {
-      final segment = recordedSegments[i];
-      final isBreaststroke = event.stroke == Stroke.breaststroke;
-
-      final distanceData = _getDistance(segment.checkPoint, i, recordedSegments, event);
-      if (distanceData.isEstimated) {
-        breakoutNote = '* Breakout distance estimated to be ${distanceData.distance}';
-      }
-
-      final splitTime = segment.time - startTime;
-      final lapTime = lastTime != null ? segment.time - lastTime! : splitTime;
-
-      final lapAttributes = (lapIndex < lapData.length) ? lapData[lapIndex] : null;
-
-      // Build the cells for this row
-      final cells = <DataCell>[
-        DataCell(Text(distanceData.distance)),
-        DataCell(Text(_formatDuration(lapTime))),
-        DataCell(Text(_formatDuration(splitTime))),
-      ];
-
-      if (lapAttributes != null) {
-        final strokeFreq = _calculateStrokeFrequency(lapTime, lapAttributes.strokeCount);
-        if (!isBreaststroke) {
-          cells.add(DataCell(Text(lapAttributes.dolphinKickCount.toString())));
-        }
-        cells.add(DataCell(Text(lapAttributes.strokeCount.toString())));
-        if (!isBreaststroke) {
-          cells.add(DataCell(Text(lapAttributes.breathCount.toString())));
-        }
-        cells.add(DataCell(Text(strokeFreq)));
-      }
-
-      rows.add(DataRow(cells: cells));
-
-      // After a turn or finish, the next checkpoint starts a new lap timing context.
-      if (segment.checkPoint == CheckPoint.turn || segment.checkPoint == CheckPoint.finish) {
-        lastTime = segment.time;
-        lapIndex++;
-      }
-    }
-
-    final columns = <DataColumn>[
+    // Define columns dynamically based on stroke.
+    final List<DataColumn> columns = [
       const DataColumn(label: Text('Distance')),
-      const DataColumn(label: Text('Lap Time')),
       const DataColumn(label: Text('Split Time')),
+      const DataColumn(label: Text('Lap Time')),
+      if (!isBreaststroke) const DataColumn(label: Text('Dolphin Kicks')),
+      const DataColumn(label: Text('Strokes')),
+      if (!isBreaststroke) const DataColumn(label: Text('Breaths')),
+      const DataColumn(label: Text('Stroke Freq.')),
+      const DataColumn(label: Text('Stroke Len.')),
     ];
 
-    if (event.stroke != Stroke.breaststroke) {
-      columns.add(const DataColumn(label: Text('Dolphin Kicks')));
-    }
-    columns.add(const DataColumn(label: Text('Strokes')));
-    if (event.stroke != Stroke.breaststroke) {
-      columns.add(const DataColumn(label: Text('Breaths')));
-    }
-    columns.add(const DataColumn(label: Text('Stroke Freq.')));
+    final breakoutEstimate = _getBreakoutEstimate();
 
     return Scaffold(
       appBar: AppBar(
-        title: Text('${event.name} Results'),
+        title: Text('${event.name} - Results'),
       ),
-      body: SingleChildScrollView(
-        scrollDirection: Axis.vertical,
-        child: Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                child: DataTable(
-                  columns: columns,
-                  rows: rows,
-                ),
-              ),
-              if (breakoutNote.isNotEmpty)
-                Padding(
-                  padding: const EdgeInsets.only(top: 16.0),
-                  child: Text(
-                    breakoutNote,
-                    style: Theme.of(context).textTheme.bodySmall,
+      body: hasRecordedData
+          ? SingleChildScrollView(
+              scrollDirection: Axis.vertical,
+              child: Column(
+                children: [
+                  SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: DataTable(
+                      columns: columns,
+                      rows: List<DataRow>.generate(
+                        recordedSegments.length,
+                        (index) {
+                          final segment = recordedSegments[index];
+                          final splitTime = _getSplitTime(index);
+                          final lapTime = _getLapTime(index);
+                          final strokeFreq = _getStrokeFrequency(index);
+                          final strokeLength = _getStrokeLength(index);
+
+                          // Attributes are for the interval ending at this segment.
+                          final attributes = index > 0 ? intervalAttributes[index - 1] : null;
+
+                          return DataRow(
+                            cells: <DataCell>[
+                              DataCell(Text(_getDistance(segment, index))),
+                              DataCell(Text(splitTime)),
+                              DataCell(Text(lapTime)),
+                              if (!isBreaststroke)
+                                DataCell(Text(attributes?.dolphinKickCount.toString() ?? '')),
+                              DataCell(Text(attributes?.strokeCount.toString() ?? '')),
+                              if (!isBreaststroke)
+                                DataCell(Text(attributes?.breathCount.toString() ?? '')),
+                              DataCell(Text(strokeFreq)),
+                              DataCell(Text(strokeLength)),
+                            ],
+                          );
+                        },
+                      ),
+                    ),
                   ),
-                ),
-            ],
-          ),
-        ),
-      ),
+                  if (breakoutEstimate != null)
+                    Padding(
+                      padding: const EdgeInsets.all(16.0),
+                      child: Text(breakoutEstimate),
+                    ),
+                ],
+              ),
+            )
+          : const Center(child: Text('No results to display.')),
     );
   }
 
-  String _formatDuration(Duration d) {
-    return d.toString().substring(2, 11); // Format as 00:00.000000
-  }
-
-  String _calculateStrokeFrequency(Duration lapTime, int strokeCount) {
-    if (strokeCount == 0 || lapTime.inMilliseconds == 0) return 'N/A';
-    final double strokesPerSecond = strokeCount / lapTime.inSeconds;
-    return strokesPerSecond.toStringAsFixed(2);
-  }
-
-  _DistanceData _getDistance(CheckPoint cp, int index, List<RaceSegment> segments, Event event) {
-    final lapLength = event.poolLength;
-    int turnCount = 0;
-    for (int i = 0; i < index; i++) {
-      if (segments[i].checkPoint == CheckPoint.turn) {
-        turnCount++;
-      }
+  String? _getBreakoutEstimate() {
+    if (recordedSegments.any((s) => s.checkPoint == CheckPoint.breakOut)) {
+      return '* Breakout distance is an estimation based on average speed to the 15m mark.';
     }
+    return null;
+  }
+
+  double _getDistanceAsDouble(RaceSegment segment, int index) {
+    final cp = segment.checkPoint;
+    int turnCount = recordedSegments
+        .take(index)
+        .where((s) => s.checkPoint == CheckPoint.turn)
+        .length;
+
+    final lapLength = event.poolLength;
 
     switch (cp) {
       case CheckPoint.start:
-        return _DistanceData('0m');
       case CheckPoint.offTheBlock:
-        return _DistanceData('Off Block');
-      case CheckPoint.fifteenMeterMark:
-        return _DistanceData('${turnCount * lapLength + 15}m');
-      case CheckPoint.turn:
-        return _DistanceData('${(turnCount + 1) * lapLength}m');
-      case CheckPoint.finish:
-        return _DistanceData('${event.distance}m');
+        return 0.0;
       case CheckPoint.breakOut:
-        // Find the start of the current lap
-        final lapStartIndex = segments.lastIndexWhere(
-            (s) => s.checkPoint == CheckPoint.start || s.checkPoint == CheckPoint.turn,
-            index);
-        final lapStartSegment = (lapStartIndex != -1) ? segments[lapStartIndex] : null;
+        {
+          final lapStartSegment = recordedSegments
+              .take(index)
+              .lastWhere((s) => s.checkPoint == CheckPoint.start || s.checkPoint == CheckPoint.turn);
+          final lapStartIndex = recordedSegments.lastIndexOf(lapStartSegment, index);
 
-        // Find the 15m mark for this lap
-        final fifteenMeterIndex = segments.indexWhere(
-            (s) => s.checkPoint == CheckPoint.fifteenMeterMark, lapStartIndex);
-        final fifteenMeterSegment = (fifteenMeterIndex != -1) ? segments[fifteenMeterIndex] : null;
-
-        if (lapStartSegment != null && fifteenMeterSegment != null) {
-          final timeTo15m = fifteenMeterSegment.time - lapStartSegment.time;
-          if (timeTo15m > Duration.zero) {
-            final avgSpeed = 15.0 / timeTo15m.inSeconds;
-            final timeToBreakout = segments[index].time - lapStartSegment.time;
-            final estimatedDistance = avgSpeed * timeToBreakout.inSeconds;
-            return _DistanceData('~${estimatedDistance.toStringAsFixed(1)}m', isEstimated: true);
+          RaceSegment? fifteenMeterMarkInLap;
+          for (int i = lapStartIndex + 1; i < recordedSegments.length; i++) {
+            final currentSegment = recordedSegments[i];
+            if (currentSegment.checkPoint == CheckPoint.fifteenMeterMark) {
+              fifteenMeterMarkInLap = currentSegment;
+              break;
+            }
+            if (currentSegment.checkPoint == CheckPoint.turn || currentSegment.checkPoint == CheckPoint.finish) {
+              break;
+            }
           }
+
+          if (fifteenMeterMarkInLap != null) {
+            final timeTo15m = fifteenMeterMarkInLap.time - lapStartSegment.time;
+            if (timeTo15m.inMilliseconds > 0) {
+              final double durationTo15m = timeTo15m.inMilliseconds / 1000.0;
+              final avgSpeed = 15.0 / durationTo15m;
+              final timeToBreakout = segment.time - lapStartSegment.time;
+              final double durationToBreakout =
+                  timeToBreakout.inMilliseconds / 1000.0;
+              return avgSpeed * durationToBreakout;
+            }
+          }
+          return 7.5; // Fallback
         }
-        return _DistanceData('Breakout*'); // Fallback
+      case CheckPoint.fifteenMeterMark:
+        return (turnCount * lapLength + 15).toDouble();
+      case CheckPoint.turn:
+        return ((turnCount + 1) * lapLength).toDouble();
+      case CheckPoint.finish:
+        return event.distance.toDouble();
     }
   }
-}
 
-class _DistanceData {
-  final String distance;
-  final bool isEstimated;
 
-  _DistanceData(this.distance, {this.isEstimated = false});
+  String _getDistance(RaceSegment segment, int index) {
+    final cp = segment.checkPoint;
+    int turnCount = recordedSegments
+        .take(index)
+        .where((s) => s.checkPoint == CheckPoint.turn)
+        .length;
+
+    final lapLength = event.poolLength;
+
+    switch (cp) {
+      case CheckPoint.start:
+        return '0m';
+      case CheckPoint.offTheBlock:
+        return '0m';
+      case CheckPoint.breakOut:
+          final distance = _getDistanceAsDouble(segment, index);
+          return '~${distance.toStringAsFixed(1)}m*';
+      case CheckPoint.fifteenMeterMark:
+        return '${turnCount * lapLength + 15}m';
+      case CheckPoint.turn:
+        return '${(turnCount + 1) * lapLength}m';
+      case CheckPoint.finish:
+        return '${event.distance}m';
+    }
+  }
+
+  String _formatDuration(Duration d) {
+    return '${d.inMinutes}:${(d.inSeconds % 60).toString().padLeft(2, '0')}.${(d.inMilliseconds % 1000).toString().padLeft(3, '0').substring(0, 2)}';
+  }
+
+  String _getSplitTime(int index) {
+    if (index == 0) return '-';
+    final current = recordedSegments[index].time;
+    final previous = recordedSegments[index - 1].time;
+    return _formatDuration(current - previous);
+  }
+
+  String _getLapTime(int index) {
+    final currentSegment = recordedSegments[index];
+
+    if (currentSegment.checkPoint != CheckPoint.turn &&
+        currentSegment.checkPoint != CheckPoint.finish) {
+      return '-';
+    }
+
+    final lapStartSegment = recordedSegments
+        .take(index)
+        .lastWhere(
+          (s) => s.checkPoint == CheckPoint.start || s.checkPoint == CheckPoint.turn,
+          orElse: () => recordedSegments[0],
+        );
+
+    final lapTime = currentSegment.time - lapStartSegment.time;
+    return _formatDuration(lapTime);
+  }
+
+   String _getStrokeFrequency(int index) {
+    if (index == 0) return '-';
+
+    final currentAttributes = intervalAttributes[index - 1];
+    if (currentAttributes.strokeCount == 0) return '-';
+
+    final startSegment = recordedSegments[index - 1];
+    final endSegment = recordedSegments[index];
+
+    final isSwimmingSegment = (startSegment.checkPoint == CheckPoint.breakOut || startSegment.checkPoint == CheckPoint.fifteenMeterMark) && (endSegment.checkPoint == CheckPoint.turn || endSegment.checkPoint == CheckPoint.finish || endSegment.checkPoint == CheckPoint.fifteenMeterMark);
+
+    if (!isSwimmingSegment) return '-';
+
+    final duration = endSegment.time - startSegment.time;
+    if (duration.inMilliseconds > 0) {
+      final double durationInSeconds = duration.inMilliseconds / 1000.0;
+      final double strokesPerMinute = (currentAttributes.strokeCount / durationInSeconds) * 60;
+      return strokesPerMinute.toStringAsFixed(1);
+    }
+    return '-';
+  }
+
+  String _getStrokeLength(int index) {
+    if (index == 0) return '-';
+
+    final currentAttributes = intervalAttributes[index - 1];
+    if (currentAttributes.strokeCount == 0) return '-';
+
+    final startSegment = recordedSegments[index - 1];
+    final endSegment = recordedSegments[index];
+
+    final isSwimmingSegment = (startSegment.checkPoint == CheckPoint.breakOut || startSegment.checkPoint == CheckPoint.fifteenMeterMark) && (endSegment.checkPoint == CheckPoint.turn || endSegment.checkPoint == CheckPoint.finish || endSegment.checkPoint == CheckPoint.fifteenMeterMark);
+
+    if (!isSwimmingSegment) return '-';
+
+    final startDistance = _getDistanceAsDouble(startSegment, index - 1);
+    final endDistance = _getDistanceAsDouble(endSegment, index);
+    final intervalDistance = endDistance - startDistance;
+
+    if (intervalDistance > 0) {
+      final strokeLength = intervalDistance / currentAttributes.strokeCount;
+      return '${strokeLength.toStringAsFixed(2)}m';
+    }
+
+    return '-';
+  }
 }

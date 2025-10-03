@@ -1,5 +1,17 @@
 import 'package:flutter/foundation.dart';
 
+// New enum for the swim strokes
+enum Stroke {
+  freestyle,
+  backstroke,
+  butterfly,
+  breaststroke;
+
+  String get displayName {
+    return name[0].toUpperCase() + name.substring(1);
+  }
+}
+
 /// The different types of checkpoints in a race.
 enum CheckPoint {
   start,
@@ -61,11 +73,12 @@ class LapData {
   }
 }
 
-
 /// Abstract class representing a generic swimming event.
 @immutable
 abstract class Event {
-  const Event();
+  const Event({required this.stroke});
+
+  final Stroke stroke;
 
   /// The name of the event, e.g., "50m Freestyle".
   String get name;
@@ -77,10 +90,10 @@ abstract class Event {
 /// A concrete implementation for a 50-meter race.
 @immutable
 class FiftyMeterRace extends Event {
-  const FiftyMeterRace();
+  const FiftyMeterRace({required super.stroke});
 
   @override
-  String get name => '50m Race';
+  String get name => '50m ${stroke.displayName}';
 
   @override
   List<CheckPoint> get checkPoints => [
@@ -89,6 +102,8 @@ class FiftyMeterRace extends Event {
         CheckPoint.breakOut,
         CheckPoint.fifteenMeterMark,
         CheckPoint.turn,
+        CheckPoint.breakOut,
+        CheckPoint.fifteenMeterMark,
         CheckPoint.finish,
       ];
 }
@@ -96,14 +111,16 @@ class FiftyMeterRace extends Event {
 /// A concrete implementation for a 100-meter race.
 @immutable
 class HundredMetersRace extends Event {
-  const HundredMetersRace();
+  const HundredMetersRace({required super.stroke});
 
   @override
-  String get name => '100m Race';
+  String get name => '100m ${stroke.displayName}';
 
   @override
   List<CheckPoint> get checkPoints => [
         CheckPoint.start,
+        CheckPoint.breakOut,
+        CheckPoint.fifteenMeterMark,
         CheckPoint.turn, // 25m
         CheckPoint.turn, // 50m
         CheckPoint.turn, // 75m

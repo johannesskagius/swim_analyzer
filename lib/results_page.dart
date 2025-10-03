@@ -22,11 +22,9 @@ class ResultsPage extends StatelessWidget {
     final bool isBreaststroke = event.stroke == Stroke.breaststroke;
     final hasRecordedData = recordedSegments.isNotEmpty;
 
-    // Define columns dynamically based on stroke.
     final List<DataColumn> columns = [
       const DataColumn(label: Text('Distance')),
-      const DataColumn(label: Text('Split Time')),
-      const DataColumn(label: Text('Lap Time')),
+      const DataColumn(label: Text('Time')),
       if (!isBreaststroke) const DataColumn(label: Text('Dolphin Kicks')),
       const DataColumn(label: Text('Strokes')),
       if (!isBreaststroke) const DataColumn(label: Text('Breaths')),
@@ -35,6 +33,7 @@ class ResultsPage extends StatelessWidget {
     ];
 
     final breakoutEstimate = _getBreakoutEstimate();
+    final startTime = hasRecordedData ? recordedSegments[0].time : Duration.zero;
 
     return Scaffold(
       appBar: AppBar(
@@ -60,19 +59,38 @@ class ResultsPage extends StatelessWidget {
                         recordedSegments.length,
                         (index) {
                           final segment = recordedSegments[index];
+                          final totalTime = _formatDuration(segment.time - startTime);
                           final splitTime = _getSplitTime(index);
-                          final lapTime = _getLapTime(index);
                           final strokeFreq = _getStrokeFrequency(index);
                           final strokeLength = _getStrokeLength(index);
 
-                          // Attributes are for the interval ending at this segment.
                           final attributes = index > 0 ? intervalAttributes[index - 1] : null;
 
                           return DataRow(
                             cells: <DataCell>[
                               DataCell(Text(_getDistance(segment, index))),
-                              DataCell(Text(splitTime)),
-                              DataCell(Text(lapTime)),
+                              DataCell(
+                                Padding(
+                                  padding: const EdgeInsets.symmetric(vertical: 4.0),
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      Text(
+                                        totalTime,
+                                        style: const TextStyle(fontWeight: FontWeight.bold),
+                                      ),
+                                      Text(
+                                        splitTime,
+                                        style: Theme.of(context)
+                                            .textTheme
+                                            .bodySmall
+                                            ?.copyWith(color: Colors.grey.shade700),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
                               if (!isBreaststroke)
                                 DataCell(Text(attributes?.dolphinKickCount.toString() ?? '')),
                               DataCell(Text(attributes?.strokeCount.toString() ?? '')),
@@ -100,11 +118,12 @@ class ResultsPage extends StatelessWidget {
 
   void _exportToCsv(BuildContext context) async {
     final bool isBreaststroke = event.stroke == Stroke.breaststroke;
+    final startTime = recordedSegments.isNotEmpty ? recordedSegments[0].time : Duration.zero;
 
     final List<String> headers = [
       'Distance',
+      'Total Time',
       'Split Time',
-      'Lap Time',
       if (!isBreaststroke) 'Dolphin Kicks',
       'Strokes',
       if (!isBreaststroke) 'Breaths',
@@ -116,8 +135,8 @@ class ResultsPage extends StatelessWidget {
 
     for (int index = 0; index < recordedSegments.length; index++) {
       final segment = recordedSegments[index];
+      final totalTime = _formatDuration(segment.time - startTime);
       final splitTime = _getSplitTime(index);
-      final lapTime = _getLapTime(index);
       final strokeFreq = _getStrokeFrequency(index);
       final strokeLength = _getStrokeLength(index);
 
@@ -125,8 +144,8 @@ class ResultsPage extends StatelessWidget {
 
       final List<dynamic> row = [
         _getDistance(segment, index),
+        totalTime,
         splitTime,
-        lapTime,
         if (!isBreaststroke) attributes?.dolphinKickCount.toString() ?? '',
         attributes?.strokeCount.toString() ?? '',
         if (!isBreaststroke) attributes?.breathCount.toString() ?? '',
@@ -187,6 +206,8 @@ class ResultsPage extends StatelessWidget {
               .take(index)
               .lastWhere((s) => s.checkPoint == CheckPoint.start || s.checkPoint == CheckPoint.turn);
           final lapStartIndex = recordedSegments.lastIndexOf(lapStartSegment, index);
+          
+          final lapStartDistance = _getDistanceAsDouble(lapStartSegment, lapStartIndex);
 
           RaceSegment? fifteenMeterMarkInLap;
           for (int i = lapStartIndex + 1; i < recordedSegments.length; i++) {
@@ -208,10 +229,11 @@ class ResultsPage extends StatelessWidget {
               final timeToBreakout = segment.time - lapStartSegment.time;
               final double durationToBreakout =
                   timeToBreakout.inMilliseconds / 1000.0;
-              return avgSpeed * durationToBreakout;
+              final estimatedBreakoutDistanceFromWall = avgSpeed * durationToBreakout;
+              return lapStartDistance + estimatedBreakoutDistanceFromWall;
             }
           }
-          return 7.5; // Fallback
+          return lapStartDistance + 7.5; // Fallback
         }
       case CheckPoint.fifteenMeterMark:
         return (turnCount * lapLength + 15).toDouble();
@@ -250,6 +272,7 @@ class ResultsPage extends StatelessWidget {
   }
 
   String _formatDuration(Duration d) {
+    if (d.inMilliseconds < 0) return '0:00.00';
     return '${d.inMinutes}:${(d.inSeconds % 60).toString().padLeft(2, '0')}.${(d.inMilliseconds % 1000).toString().padLeft(3, '0').substring(0, 2)}';
   }
 
@@ -258,25 +281,6 @@ class ResultsPage extends StatelessWidget {
     final current = recordedSegments[index].time;
     final previous = recordedSegments[index - 1].time;
     return _formatDuration(current - previous);
-  }
-
-  String _getLapTime(int index) {
-    final currentSegment = recordedSegments[index];
-
-    if (currentSegment.checkPoint != CheckPoint.turn &&
-        currentSegment.checkPoint != CheckPoint.finish) {
-      return '-';
-    }
-
-    final lapStartSegment = recordedSegments
-        .take(index)
-        .lastWhere(
-          (s) => s.checkPoint == CheckPoint.start || s.checkPoint == CheckPoint.turn,
-          orElse: () => recordedSegments[0],
-        );
-
-    final lapTime = currentSegment.time - lapStartSegment.time;
-    return _formatDuration(lapTime);
   }
 
    String _getStrokeFrequency(int index) {

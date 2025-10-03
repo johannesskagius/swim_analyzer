@@ -302,7 +302,8 @@ class _RaceAnalysisPageState extends State<RaceAnalysisPage> {
         ],
       ),
       body: _controller?.value.isInitialized ?? false
-          ? Stack(
+          ? Column(
+              mainAxisSize: MainAxisSize.min,
               children: [
                 Center(
                   child: AspectRatio(
@@ -310,7 +311,7 @@ class _RaceAnalysisPageState extends State<RaceAnalysisPage> {
                     child: VideoPlayer(_controller!),
                   ),
                 ),
-                _buildControlsOverlay(),
+                Expanded(child: _buildControlsOverlay()),
               ],
             )
           : Center(
@@ -472,21 +473,29 @@ class _RaceAnalysisPageState extends State<RaceAnalysisPage> {
   Widget _buildAttributeControls() {
     // Attribute editing is only possible if at least one interval (two checkpoints) has been recorded.
     if (_recordedSegments.length < 2 || _currentEvent == null) {
-      return const Text('Record at least one interval to edit attributes.', style: TextStyle(color: Colors.white70));
+      return const Text('Record at least one interval to edit attributes.',
+          style: TextStyle(color: Colors.white70));
     }
 
-    final currentAttributes = _intervalAttributes[_attributeEditingIntervalIndex];
+    final currentAttributes =
+        _intervalAttributes[_attributeEditingIntervalIndex];
     final bool isBreaststroke = _currentEvent!.stroke == Stroke.breaststroke;
 
     final startCp = _currentEvent!.checkPoints[_attributeEditingIntervalIndex];
-    final endCp = _currentEvent!.checkPoints[_attributeEditingIntervalIndex + 1];
+    final endCp =
+        _currentEvent!.checkPoints[_attributeEditingIntervalIndex + 1];
 
-    final startName = _getDistanceForCheckpoint(startCp, _attributeEditingIntervalIndex);
-    final endName = _getDistanceForCheckpoint(endCp, _attributeEditingIntervalIndex + 1);
+    final startName =
+        _getDistanceForCheckpoint(startCp, _attributeEditingIntervalIndex);
+    final endName =
+        _getDistanceForCheckpoint(endCp, _attributeEditingIntervalIndex + 1);
 
-    final bool isUnderwater = (startCp == CheckPoint.offTheBlock || startCp == CheckPoint.turn) && endCp == CheckPoint.breakOut;
-    final bool isSwimming = !isUnderwater && startCp != CheckPoint.start && endCp != CheckPoint.offTheBlock;
-
+    final bool isUnderwater =
+        (startCp == CheckPoint.offTheBlock || startCp == CheckPoint.turn) &&
+            endCp == CheckPoint.breakOut;
+    final bool isSwimming = !isUnderwater &&
+        startCp != CheckPoint.start &&
+        endCp != CheckPoint.offTheBlock;
 
     return Column(
       children: [
@@ -508,9 +517,10 @@ class _RaceAnalysisPageState extends State<RaceAnalysisPage> {
             ),
             IconButton(
               icon: const Icon(Icons.chevron_right),
-              onPressed: _attributeEditingIntervalIndex < _recordedSegments.length - 2
-                  ? () => _changeAttributeInterval(1)
-                  : null,
+              onPressed:
+                  _attributeEditingIntervalIndex < _recordedSegments.length - 2
+                      ? () => _changeAttributeInterval(1)
+                      : null,
               color: Colors.white,
             ),
           ],
@@ -520,26 +530,32 @@ class _RaceAnalysisPageState extends State<RaceAnalysisPage> {
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceEvenly,
           children: [
-             if (isUnderwater && !isBreaststroke)
+            if (isUnderwater && !isBreaststroke)
               _buildAttributeCounter(
                 label: 'Dolphin Kicks',
                 count: currentAttributes.dolphinKickCount,
-                onIncrement: () => setState(() => currentAttributes.dolphinKickCount++),
-                onDecrement: () => setState(() => currentAttributes.dolphinKickCount--),
+                onIncrement: () =>
+                    setState(() => currentAttributes.dolphinKickCount++),
+                onDecrement: () =>
+                    setState(() => currentAttributes.dolphinKickCount--),
               ),
             if (isSwimming)
               _buildAttributeCounter(
                 label: 'Strokes',
                 count: currentAttributes.strokeCount,
-                onIncrement: () => setState(() => currentAttributes.strokeCount++),
-                onDecrement: () => setState(() => currentAttributes.strokeCount--),
+                onIncrement: () =>
+                    setState(() => currentAttributes.strokeCount++),
+                onDecrement: () =>
+                    setState(() => currentAttributes.strokeCount--),
               ),
             if (isSwimming && !isBreaststroke)
               _buildAttributeCounter(
                 label: 'Breaths',
                 count: currentAttributes.breathCount,
-                onIncrement: () => setState(() => currentAttributes.breathCount++),
-                onDecrement: () => setState(() => currentAttributes.breathCount--),
+                onIncrement: () =>
+                    setState(() => currentAttributes.breathCount++),
+                onDecrement: () =>
+                    setState(() => currentAttributes.breathCount--),
               ),
           ],
         )
@@ -547,7 +563,7 @@ class _RaceAnalysisPageState extends State<RaceAnalysisPage> {
     );
   }
 
-    Widget _buildAttributeCounter({
+  Widget _buildAttributeCounter({
     required String label,
     required int count,
     required VoidCallback onIncrement,
@@ -573,7 +589,9 @@ class _RaceAnalysisPageState extends State<RaceAnalysisPage> {
             Text(
               '$count',
               style: const TextStyle(
-                  color: Colors.white, fontSize: 32, fontWeight: FontWeight.bold),
+                  color: Colors.white,
+                  fontSize: 32,
+                  fontWeight: FontWeight.bold),
             ),
             IconButton(
               icon: const Icon(Icons.add_circle_outline),
@@ -586,7 +604,6 @@ class _RaceAnalysisPageState extends State<RaceAnalysisPage> {
       ],
     );
   }
-
 
   Widget _buildTransportControls() {
     return Padding(

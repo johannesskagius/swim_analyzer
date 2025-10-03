@@ -1,4 +1,8 @@
+import 'dart:io';
+import 'package:csv/csv.dart';
 import 'package:flutter/material.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:share_plus/share_plus.dart';
 import 'race_model.dart';
 
 class ResultsPage extends StatelessWidget {
@@ -35,6 +39,13 @@ class ResultsPage extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(
         title: Text('${event.name} - Results'),
+        actions: [
+          if (hasRecordedData)
+            IconButton(
+              icon: const Icon(Icons.share),
+              onPressed: () => _exportToCsv(context),
+            ),
+        ],
       ),
       body: hasRecordedData
           ? SingleChildScrollView(
@@ -85,6 +96,69 @@ class ResultsPage extends StatelessWidget {
             )
           : const Center(child: Text('No results to display.')),
     );
+  }
+
+  void _exportToCsv(BuildContext context) async {
+    final bool isBreaststroke = event.stroke == Stroke.breaststroke;
+
+    final List<String> headers = [
+      'Distance',
+      'Split Time',
+      'Lap Time',
+      if (!isBreaststroke) 'Dolphin Kicks',
+      'Strokes',
+      if (!isBreaststroke) 'Breaths',
+      'Stroke Freq.',
+      'Stroke Len.',
+    ];
+
+    final List<List<dynamic>> rows = [headers];
+
+    for (int index = 0; index < recordedSegments.length; index++) {
+      final segment = recordedSegments[index];
+      final splitTime = _getSplitTime(index);
+      final lapTime = _getLapTime(index);
+      final strokeFreq = _getStrokeFrequency(index);
+      final strokeLength = _getStrokeLength(index);
+
+      final attributes = index > 0 ? intervalAttributes[index - 1] : null;
+
+      final List<dynamic> row = [
+        _getDistance(segment, index),
+        splitTime,
+        lapTime,
+        if (!isBreaststroke) attributes?.dolphinKickCount.toString() ?? '',
+        attributes?.strokeCount.toString() ?? '',
+        if (!isBreaststroke) attributes?.breathCount.toString() ?? '',
+        strokeFreq,
+        strokeLength,
+      ];
+      rows.add(row);
+    }
+
+    final breakoutEstimate = _getBreakoutEstimate();
+    if (breakoutEstimate != null) {
+      rows.add([breakoutEstimate]);
+    }
+
+    String csv = const ListToCsvConverter().convert(rows);
+
+    try {
+      final directory = await getTemporaryDirectory();
+      final strokeName = event.stroke.toString().split('.').last;
+      final fileName =
+          'swim_analysis_${event.name.replaceAll(' ', '_')}_$strokeName.csv';
+      final path = '${directory.path}/$fileName';
+      final file = File(path);
+      await file.writeAsString(csv);
+
+      await Share.shareXFiles([XFile(path)], text: '${event.name} - Analysis');
+    } catch (e) {
+      debugPrint(e.toString());
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error exporting data: $e')),
+      );
+    }
   }
 
   String? _getBreakoutEstimate() {

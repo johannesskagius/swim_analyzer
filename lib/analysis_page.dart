@@ -314,7 +314,7 @@ class _RaceAnalysisPageState extends State<RaceAnalysisPage> {
         VideoProgressIndicator(_controller!, allowScrubbing: true),
         const Spacer(),
         Container(
-          color: Colors.black.withOpacity(0.4),
+          color: Colors.black.withAlpha(40),
           padding: const EdgeInsets.symmetric(vertical: 12.0),
           child: Column(
             mainAxisSize: MainAxisSize.min,

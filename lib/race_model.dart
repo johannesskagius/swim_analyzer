@@ -107,3 +107,74 @@ class HundredMetersRace extends Event {
         CheckPoint.finish, // 100m
       ];
 }
+
+/// Represents a single segment of a race with all its calculated metrics.
+class AnalyzedSegment {
+  final int sequence;
+  final String checkPoint;
+  final double distanceMeters;
+  final int totalTimeMillis;
+  final int splitTimeMillis;
+  final int? dolphinKicks;
+  final int? strokes;
+  final int? breaths;
+  final double? strokeFrequency;
+  final double? strokeLengthMeters;
+
+  AnalyzedSegment({
+    required this.sequence,
+    required this.checkPoint,
+    required this.distanceMeters,
+    required this.totalTimeMillis,
+    required this.splitTimeMillis,
+    this.dolphinKicks,
+    this.strokes,
+    this.breaths,
+    this.strokeFrequency,
+    this.strokeLengthMeters,
+  });
+
+  /// Converts this object into a Map for Firestore.
+  Map<String, dynamic> toJson() {
+    return {
+      'sequence': sequence,
+      'checkPoint': checkPoint,
+      'distanceMeters': distanceMeters,
+      'totalTimeMillis': totalTimeMillis,
+      'splitTimeMillis': splitTimeMillis,
+      'dolphinKicks': dolphinKicks,
+      'strokes': strokes,
+      'breaths': breaths,
+      'strokeFrequency': strokeFrequency,
+      'strokeLengthMeters': strokeLengthMeters,
+    };
+  }
+}
+
+/// Represents a full race analysis, ready to be stored in Firestore.
+class Race {
+  final String eventName;
+  final int poolLength;
+  final String stroke;
+  final int distance;
+  final List<AnalyzedSegment> segments;
+
+  Race({
+    required this.eventName,
+    required this.poolLength,
+    required this.stroke,
+    required this.distance,
+    required this.segments,
+  });
+
+  /// Converts this object into a Map for Firestore.
+  Map<String, dynamic> toJson() {
+    return {
+      'eventName': eventName,
+      'poolLength': poolLength,
+      'stroke': stroke,
+      'distance': distance,
+      'segments': segments.map((s) => s.toJson()).toList(),
+    };
+  }
+}

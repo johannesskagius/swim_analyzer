@@ -1,9 +1,7 @@
-import 'dart:io';
-import 'package:csv/csv.dart';
 import 'package:flutter/material.dart';
-import 'package:path_provider/path_provider.dart';
-import 'package:share_plus/share_plus.dart';
-import 'race_model.dart';
+import 'package:provider/provider.dart';
+import 'package:swim_analyzer/race_model.dart';
+import 'package:swim_analyzer/race_repository.dart';
 
 class ResultsPage extends StatelessWidget {
   final List<RaceSegment> recordedSegments;
@@ -16,6 +14,63 @@ class ResultsPage extends StatelessWidget {
     required this.intervalAttributes,
     required this.event,
   });
+
+  Future<void> _saveRaceToFirestore(BuildContext context) async {
+    if (recordedSegments.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No data to save.')),
+      );
+      return;
+    }
+
+    final startTime = recordedSegments[0].time;
+    final List<AnalyzedSegment> analyzedSegments = [];
+
+    for (int i = 0; i < recordedSegments.length; i++) {
+      final segment = recordedSegments[i];
+      final attributes = i > 0 ? intervalAttributes[i - 1] : null;
+
+      final totalTime = segment.time - startTime;
+      final splitTime =
+          (i > 0) ? (segment.time - recordedSegments[i - 1].time) : Duration.zero;
+      
+      final strokeFreqStr = _getStrokeFrequency(i);
+      final strokeLengthStr = _getStrokeLength(i);
+
+      analyzedSegments.add(AnalyzedSegment(
+        sequence: i,
+        checkPoint: segment.checkPoint.toString().split('.').last,
+        distanceMeters: _getDistanceAsDouble(segment, i),
+        totalTimeMillis: totalTime.inMilliseconds,
+        splitTimeMillis: splitTime.inMilliseconds,
+        dolphinKicks: attributes?.dolphinKickCount,
+        strokes: attributes?.strokeCount,
+        breaths: attributes?.breathCount,
+        strokeFrequency: strokeFreqStr == '-' ? null : double.tryParse(strokeFreqStr),
+        strokeLengthMeters: strokeLengthStr == '-' ? null : double.tryParse(strokeLengthStr.replaceAll('m', '')),
+      ));
+    }
+
+    final newRace = Race(
+      eventName: event.name,
+      poolLength: event.poolLength,
+      stroke: event.stroke.toString().split('.').last,
+      distance: event.distance,
+      segments: analyzedSegments,
+    );
+
+    try {
+      final raceRepository = Provider.of<RaceRepository>(context, listen: false);
+      await raceRepository.addRace(newRace);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Race analysis saved successfully!')),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error saving race: $e')),
+      );
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -33,7 +88,8 @@ class ResultsPage extends StatelessWidget {
     ];
 
     final breakoutEstimate = _getBreakoutEstimate();
-    final startTime = hasRecordedData ? recordedSegments[0].time : Duration.zero;
+    final startTime =
+        hasRecordedData ? recordedSegments[0].time : Duration.zero;
 
     return Scaffold(
       appBar: AppBar(
@@ -41,8 +97,8 @@ class ResultsPage extends StatelessWidget {
         actions: [
           if (hasRecordedData)
             IconButton(
-              icon: const Icon(Icons.share),
-              onPressed: () => _exportToCsv(context),
+              icon: const Icon(Icons.save),
+              onPressed: () => _saveRaceToFirestore(context),
             ),
         ],
       ),
@@ -59,43 +115,54 @@ class ResultsPage extends StatelessWidget {
                         recordedSegments.length,
                         (index) {
                           final segment = recordedSegments[index];
-                          final totalTime = _formatDuration(segment.time - startTime);
+                          final totalTime =
+                              _formatDuration(segment.time - startTime);
                           final splitTime = _getSplitTime(index);
                           final strokeFreq = _getStrokeFrequency(index);
                           final strokeLength = _getStrokeLength(index);
 
-                          final attributes = index > 0 ? intervalAttributes[index - 1] : null;
+                          final attributes = index > 0
+                              ? intervalAttributes[index - 1]
+                              : null;
 
                           return DataRow(
                             cells: <DataCell>[
                               DataCell(Text(_getDistance(segment, index))),
                               DataCell(
                                 Padding(
-                                  padding: const EdgeInsets.symmetric(vertical: 4.0),
+                                  padding:
+                                      const EdgeInsets.symmetric(vertical: 4.0),
                                   child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
                                     mainAxisAlignment: MainAxisAlignment.center,
                                     children: [
                                       Text(
                                         totalTime,
-                                        style: const TextStyle(fontWeight: FontWeight.bold),
+                                        style: const TextStyle(
+                                            fontWeight: FontWeight.bold),
                                       ),
                                       Text(
                                         splitTime,
                                         style: Theme.of(context)
                                             .textTheme
                                             .bodySmall
-                                            ?.copyWith(color: Colors.grey.shade700),
+                                            ?.copyWith(
+                                                color: Colors.grey.shade700),
                                       ),
                                     ],
                                   ),
                                 ),
                               ),
                               if (!isBreaststroke)
-                                DataCell(Text(attributes?.dolphinKickCount.toString() ?? '')),
-                              DataCell(Text(attributes?.strokeCount.toString() ?? '')),
+                                DataCell(Text(attributes?.dolphinKickCount
+                                        .toString() ??
+                                    '')),
+                              DataCell(
+                                  Text(attributes?.strokeCount.toString() ?? '')),
                               if (!isBreaststroke)
-                                DataCell(Text(attributes?.breathCount.toString() ?? '')),
+                                DataCell(Text(
+                                    attributes?.breathCount.toString() ?? '')),
                               DataCell(Text(strokeFreq)),
                               DataCell(Text(strokeLength)),
                             ],
@@ -114,70 +181,6 @@ class ResultsPage extends StatelessWidget {
             )
           : const Center(child: Text('No results to display.')),
     );
-  }
-
-  void _exportToCsv(BuildContext context) async {
-    final bool isBreaststroke = event.stroke == Stroke.breaststroke;
-    final startTime = recordedSegments.isNotEmpty ? recordedSegments[0].time : Duration.zero;
-
-    final List<String> headers = [
-      'Distance',
-      'Total Time',
-      'Split Time',
-      if (!isBreaststroke) 'Dolphin Kicks',
-      'Strokes',
-      if (!isBreaststroke) 'Breaths',
-      'Stroke Freq.',
-      'Stroke Len.',
-    ];
-
-    final List<List<dynamic>> rows = [headers];
-
-    for (int index = 0; index < recordedSegments.length; index++) {
-      final segment = recordedSegments[index];
-      final totalTime = _formatDuration(segment.time - startTime);
-      final splitTime = _getSplitTime(index);
-      final strokeFreq = _getStrokeFrequency(index);
-      final strokeLength = _getStrokeLength(index);
-
-      final attributes = index > 0 ? intervalAttributes[index - 1] : null;
-
-      final List<dynamic> row = [
-        _getDistance(segment, index),
-        totalTime,
-        splitTime,
-        if (!isBreaststroke) attributes?.dolphinKickCount.toString() ?? '',
-        attributes?.strokeCount.toString() ?? '',
-        if (!isBreaststroke) attributes?.breathCount.toString() ?? '',
-        strokeFreq,
-        strokeLength,
-      ];
-      rows.add(row);
-    }
-
-    final breakoutEstimate = _getBreakoutEstimate();
-    if (breakoutEstimate != null) {
-      rows.add([breakoutEstimate]);
-    }
-
-    String csv = const ListToCsvConverter().convert(rows);
-
-    try {
-      final directory = await getTemporaryDirectory();
-      final strokeName = event.stroke.toString().split('.').last;
-      final fileName =
-          'swim_analysis_${event.name.replaceAll(' ', '_')}_$strokeName.csv';
-      final path = '${directory.path}/$fileName';
-      final file = File(path);
-      await file.writeAsString(csv);
-
-      await Share.shareXFiles([XFile(path)], text: '${event.name} - Analysis');
-    } catch (e) {
-      debugPrint(e.toString());
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error exporting data: $e')),
-      );
-    }
   }
 
   String? _getBreakoutEstimate() {
@@ -202,12 +205,15 @@ class ResultsPage extends StatelessWidget {
         return 0.0;
       case CheckPoint.breakOut:
         {
-          final lapStartSegment = recordedSegments
-              .take(index)
-              .lastWhere((s) => s.checkPoint == CheckPoint.start || s.checkPoint == CheckPoint.turn);
-          final lapStartIndex = recordedSegments.lastIndexOf(lapStartSegment, index);
-          
-          final lapStartDistance = _getDistanceAsDouble(lapStartSegment, lapStartIndex);
+          final lapStartSegment = recordedSegments.take(index).lastWhere(
+              (s) =>
+                  s.checkPoint == CheckPoint.start ||
+                  s.checkPoint == CheckPoint.turn);
+          final lapStartIndex =
+              recordedSegments.lastIndexOf(lapStartSegment, index);
+
+          final lapStartDistance =
+              _getDistanceAsDouble(lapStartSegment, lapStartIndex);
 
           RaceSegment? fifteenMeterMarkInLap;
           for (int i = lapStartIndex + 1; i < recordedSegments.length; i++) {
@@ -216,20 +222,23 @@ class ResultsPage extends StatelessWidget {
               fifteenMeterMarkInLap = currentSegment;
               break;
             }
-            if (currentSegment.checkPoint == CheckPoint.turn || currentSegment.checkPoint == CheckPoint.finish) {
+            if (currentSegment.checkPoint == CheckPoint.turn ||
+                currentSegment.checkPoint == CheckPoint.finish) {
               break;
             }
           }
 
           if (fifteenMeterMarkInLap != null) {
-            final timeTo15m = fifteenMeterMarkInLap.time - lapStartSegment.time;
+            final timeTo15m =
+                fifteenMeterMarkInLap.time - lapStartSegment.time;
             if (timeTo15m.inMilliseconds > 0) {
               final double durationTo15m = timeTo15m.inMilliseconds / 1000.0;
               final avgSpeed = 15.0 / durationTo15m;
               final timeToBreakout = segment.time - lapStartSegment.time;
               final double durationToBreakout =
                   timeToBreakout.inMilliseconds / 1000.0;
-              final estimatedBreakoutDistanceFromWall = avgSpeed * durationToBreakout;
+              final estimatedBreakoutDistanceFromWall =
+                  avgSpeed * durationToBreakout;
               return lapStartDistance + estimatedBreakoutDistanceFromWall;
             }
           }
@@ -243,7 +252,6 @@ class ResultsPage extends StatelessWidget {
         return event.distance.toDouble();
     }
   }
-
 
   String _getDistance(RaceSegment segment, int index) {
     final cp = segment.checkPoint;
@@ -260,8 +268,8 @@ class ResultsPage extends StatelessWidget {
       case CheckPoint.offTheBlock:
         return '0m';
       case CheckPoint.breakOut:
-          final distance = _getDistanceAsDouble(segment, index);
-          return '~${distance.toStringAsFixed(1)}m*';
+        final distance = _getDistanceAsDouble(segment, index);
+        return '~${distance.toStringAsFixed(1)}m*';
       case CheckPoint.fifteenMeterMark:
         return '${turnCount * lapLength + 15}m';
       case CheckPoint.turn:
@@ -283,7 +291,7 @@ class ResultsPage extends StatelessWidget {
     return _formatDuration(current - previous);
   }
 
-   String _getStrokeFrequency(int index) {
+  String _getStrokeFrequency(int index) {
     if (index == 0) return '-';
 
     final currentAttributes = intervalAttributes[index - 1];
@@ -292,14 +300,20 @@ class ResultsPage extends StatelessWidget {
     final startSegment = recordedSegments[index - 1];
     final endSegment = recordedSegments[index];
 
-    final isSwimmingSegment = (startSegment.checkPoint == CheckPoint.breakOut || startSegment.checkPoint == CheckPoint.fifteenMeterMark) && (endSegment.checkPoint == CheckPoint.turn || endSegment.checkPoint == CheckPoint.finish || endSegment.checkPoint == CheckPoint.fifteenMeterMark);
+    final isSwimmingSegment = (startSegment.checkPoint ==
+                CheckPoint.breakOut ||
+            startSegment.checkPoint == CheckPoint.fifteenMeterMark) &&
+        (endSegment.checkPoint == CheckPoint.turn ||
+            endSegment.checkPoint == CheckPoint.finish ||
+            endSegment.checkPoint == CheckPoint.fifteenMeterMark);
 
     if (!isSwimmingSegment) return '-';
 
     final duration = endSegment.time - startSegment.time;
     if (duration.inMilliseconds > 0) {
       final double durationInSeconds = duration.inMilliseconds / 1000.0;
-      final double strokesPerMinute = (currentAttributes.strokeCount / durationInSeconds) * 60;
+      final double strokesPerMinute =
+          (currentAttributes.strokeCount / durationInSeconds) * 60;
       return strokesPerMinute.toStringAsFixed(1);
     }
     return '-';
@@ -314,7 +328,12 @@ class ResultsPage extends StatelessWidget {
     final startSegment = recordedSegments[index - 1];
     final endSegment = recordedSegments[index];
 
-    final isSwimmingSegment = (startSegment.checkPoint == CheckPoint.breakOut || startSegment.checkPoint == CheckPoint.fifteenMeterMark) && (endSegment.checkPoint == CheckPoint.turn || endSegment.checkPoint == CheckPoint.finish || endSegment.checkPoint == CheckPoint.fifteenMeterMark);
+    final isSwimmingSegment = (startSegment.checkPoint ==
+                CheckPoint.breakOut ||
+            startSegment.checkPoint == CheckPoint.fifteenMeterMark) &&
+        (endSegment.checkPoint == CheckPoint.turn ||
+            endSegment.checkPoint == CheckPoint.finish ||
+            endSegment.checkPoint == CheckPoint.fifteenMeterMark);
 
     if (!isSwimmingSegment) return '-';
 

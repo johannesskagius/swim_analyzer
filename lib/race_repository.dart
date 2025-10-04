@@ -8,7 +8,7 @@ class RaceRepository {
 
   RaceRepository(this._db);
 
-  CollectionReference get _racesCollection => _db.collection('races');
+  CollectionReference get _racesCollection => _db.collection('racesAnalyzes');
 
   /// Saves a new race analysis to Firestore.
   Future<void> addRace(Race newRace) async {
@@ -21,8 +21,6 @@ class RaceRepository {
     try {
       // Add the userId and a server-side timestamp before saving.
       final raceData = newRace.toJson();
-      raceData['userId'] = user.uid;
-      raceData['createdAt'] = FieldValue.serverTimestamp();
 
       await _racesCollection.add(raceData);
       debugPrint("Race successfully saved to Firestore.");

@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:swim_analyzer/race_model.dart';
 import 'package:swim_analyzer/race_repository.dart';
+import 'package:swim_analyzer/user_repository.dart';
+import 'package:swim_analyzer/user.dart';
 
-class ResultsPage extends StatelessWidget {
+class ResultsPage extends StatefulWidget {
   final List<RaceSegment> recordedSegments;
   final List<IntervalAttributes> intervalAttributes;
   final Event event;
@@ -15,24 +17,60 @@ class ResultsPage extends StatelessWidget {
     required this.event,
   });
 
+  @override
+  State<ResultsPage> createState() => _ResultsPageState();
+}
+
+class _ResultsPageState extends State<ResultsPage> {
+  List<AppUser> _users = [];
+  String? _selectedCoachId;
+  String? _selectedSwimmerId;
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchUsers();
+  }
+
+  Future<void> _fetchUsers() async {
+    try {
+      final userRepository = Provider.of<UserRepository>(context, listen: false);
+      // Assuming userRepository has a method to get all users.
+      // If not, this method needs to be created in UserRepository.
+      final users = await userRepository.getAllSwimmersFromCoach(coachId: '2nFuabbdqjWjtpH03ZVgJEPoQBY2');
+      setState(() {
+        _users = users;
+        _isLoading = false;
+      });
+    } catch (e) {
+      setState(() {
+        _isLoading = false;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to load users: $e')),
+      );
+    }
+  }
+
   Future<void> _saveRaceToFirestore(BuildContext context) async {
-    if (recordedSegments.isEmpty) {
+    if (widget.recordedSegments.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('No data to save.')),
       );
       return;
     }
 
-    final startTime = recordedSegments[0].time;
+    final startTime = widget.recordedSegments[0].time;
     final List<AnalyzedSegment> analyzedSegments = [];
 
-    for (int i = 0; i < recordedSegments.length; i++) {
-      final segment = recordedSegments[i];
-      final attributes = i > 0 ? intervalAttributes[i - 1] : null;
+    for (int i = 0; i < widget.recordedSegments.length; i++) {
+      final segment = widget.recordedSegments[i];
+      final attributes = i > 0 ? widget.intervalAttributes[i - 1] : null;
 
       final totalTime = segment.time - startTime;
       final splitTime =
-          (i > 0) ? (segment.time - recordedSegments[i - 1].time) : Duration.zero;
+          (i > 0) ? (segment.time - widget.recordedSegments[i - 1].time) : Duration.zero;
       
       final strokeFreqStr = _getStrokeFrequency(i);
       final strokeLengthStr = _getStrokeLength(i);
@@ -52,11 +90,13 @@ class ResultsPage extends StatelessWidget {
     }
 
     final newRace = Race(
-      eventName: event.name,
-      poolLength: event.poolLength,
-      stroke: event.stroke.toString().split('.').last,
-      distance: event.distance,
+      eventName: widget.event.name,
+      poolLength: widget.event.poolLength,
+      stroke: widget.event.stroke.toString().split('.').last,
+      distance: widget.event.distance,
       segments: analyzedSegments,
+      coachId: '2nFuabbdqjWjtpH03ZVgJEPoQBY2', //_selectCoachId,
+      swimmerId: '4uaILwqD3GQsri6zP8oKWXHijlS2'//_selectedSwimmerId,
     );
 
     try {
@@ -74,8 +114,8 @@ class ResultsPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final bool isBreaststroke = event.stroke == Stroke.breaststroke;
-    final hasRecordedData = recordedSegments.isNotEmpty;
+    final bool isBreaststroke = widget.event.stroke == Stroke.breaststroke;
+    final hasRecordedData = widget.recordedSegments.isNotEmpty;
 
     final List<DataColumn> columns = [
       const DataColumn(label: Text('Distance')),
@@ -89,11 +129,11 @@ class ResultsPage extends StatelessWidget {
 
     final breakoutEstimate = _getBreakoutEstimate();
     final startTime =
-        hasRecordedData ? recordedSegments[0].time : Duration.zero;
+        hasRecordedData ? widget.recordedSegments[0].time : Duration.zero;
 
     return Scaffold(
       appBar: AppBar(
-        title: Text('${event.name} - Results'),
+        title: Text('${widget.event.name} - Results'),
         actions: [
           if (hasRecordedData)
             IconButton(
@@ -106,15 +146,64 @@ class ResultsPage extends StatelessWidget {
           ? SingleChildScrollView(
               scrollDirection: Axis.vertical,
               child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  if (_isLoading)
+                    const Center(child: Padding(
+                      padding: EdgeInsets.all(8.0),
+                      child: CircularProgressIndicator(),
+                    ))
+                  else
+                    // Padding(
+                    //   padding: const EdgeInsets.all(8.0),
+                    //   child: Row(
+                    //     children: [
+                    //       Expanded(
+                    //         child: DropdownButtonFormField<String>(
+                    //           value: _selectedSwimmerId,
+                    //           decoration: const InputDecoration(labelText: 'Swimmer', border: OutlineInputBorder()),
+                    //           items: _users.map((AppUser user) {
+                    //             return DropdownMenuItem<String>(
+                    //               value: user.id,
+                    //               child: Text(user.name ?? user.email ?? user.id),
+                    //             );
+                    //           }).toList(),
+                    //           onChanged: (String? newValue) {
+                    //             setState(() {
+                    //               _selectedSwimmerId = newValue;
+                    //             });
+                    //           },
+                    //         ),
+                    //       ),
+                    //       const SizedBox(width: 8),
+                    //        Expanded(
+                    //         child: DropdownButtonFormField<String>(
+                    //           value: _selectedCoachId,
+                    //           decoration: const InputDecoration(labelText: 'Coach', border: OutlineInputBorder()),
+                    //           items: _users.map((AppUser user) {
+                    //             return DropdownMenuItem<String>(
+                    //               value: user.id,
+                    //               child: Text(user.name ?? user.email ?? user.id),
+                    //             );
+                    //           }).toList(),
+                    //           onChanged: (String? newValue) {
+                    //             setState(() {
+                    //               _selectedCoachId = newValue;
+                    //             });
+                    //           },
+                    //         ),
+                    //       ),
+                    //     ],
+                    //   ),
+                    // ),
                   SingleChildScrollView(
                     scrollDirection: Axis.horizontal,
                     child: DataTable(
                       columns: columns,
                       rows: List<DataRow>.generate(
-                        recordedSegments.length,
+                        widget.recordedSegments.length,
                         (index) {
-                          final segment = recordedSegments[index];
+                          final segment = widget.recordedSegments[index];
                           final totalTime =
                               _formatDuration(segment.time - startTime);
                           final splitTime = _getSplitTime(index);
@@ -122,7 +211,7 @@ class ResultsPage extends StatelessWidget {
                           final strokeLength = _getStrokeLength(index);
 
                           final attributes = index > 0
-                              ? intervalAttributes[index - 1]
+                              ? widget.intervalAttributes[index - 1]
                               : null;
 
                           return DataRow(
@@ -184,7 +273,7 @@ class ResultsPage extends StatelessWidget {
   }
 
   String? _getBreakoutEstimate() {
-    if (recordedSegments.any((s) => s.checkPoint == CheckPoint.breakOut)) {
+    if (widget.recordedSegments.any((s) => s.checkPoint == CheckPoint.breakOut)) {
       return '* Breakout distance is an estimation based on average speed to the 15m mark.';
     }
     return null;
@@ -192,12 +281,12 @@ class ResultsPage extends StatelessWidget {
 
   double _getDistanceAsDouble(RaceSegment segment, int index) {
     final cp = segment.checkPoint;
-    int turnCount = recordedSegments
+    int turnCount = widget.recordedSegments
         .take(index)
         .where((s) => s.checkPoint == CheckPoint.turn)
         .length;
 
-    final lapLength = event.poolLength;
+    final lapLength = widget.event.poolLength;
 
     switch (cp) {
       case CheckPoint.start:
@@ -205,19 +294,19 @@ class ResultsPage extends StatelessWidget {
         return 0.0;
       case CheckPoint.breakOut:
         {
-          final lapStartSegment = recordedSegments.take(index).lastWhere(
+          final lapStartSegment = widget.recordedSegments.take(index).lastWhere(
               (s) =>
                   s.checkPoint == CheckPoint.start ||
                   s.checkPoint == CheckPoint.turn);
           final lapStartIndex =
-              recordedSegments.lastIndexOf(lapStartSegment, index);
+              widget.recordedSegments.lastIndexOf(lapStartSegment, index);
 
           final lapStartDistance =
               _getDistanceAsDouble(lapStartSegment, lapStartIndex);
 
           RaceSegment? fifteenMeterMarkInLap;
-          for (int i = lapStartIndex + 1; i < recordedSegments.length; i++) {
-            final currentSegment = recordedSegments[i];
+          for (int i = lapStartIndex + 1; i < widget.recordedSegments.length; i++) {
+            final currentSegment = widget.recordedSegments[i];
             if (currentSegment.checkPoint == CheckPoint.fifteenMeterMark) {
               fifteenMeterMarkInLap = currentSegment;
               break;
@@ -249,18 +338,18 @@ class ResultsPage extends StatelessWidget {
       case CheckPoint.turn:
         return ((turnCount + 1) * lapLength).toDouble();
       case CheckPoint.finish:
-        return event.distance.toDouble();
+        return widget.event.distance.toDouble();
     }
   }
 
   String _getDistance(RaceSegment segment, int index) {
     final cp = segment.checkPoint;
-    int turnCount = recordedSegments
+    int turnCount = widget.recordedSegments
         .take(index)
         .where((s) => s.checkPoint == CheckPoint.turn)
         .length;
 
-    final lapLength = event.poolLength;
+    final lapLength = widget.event.poolLength;
 
     switch (cp) {
       case CheckPoint.start:
@@ -275,7 +364,7 @@ class ResultsPage extends StatelessWidget {
       case CheckPoint.turn:
         return '${(turnCount + 1) * lapLength}m';
       case CheckPoint.finish:
-        return '${event.distance}m';
+        return '${widget.event.distance}m';
     }
   }
 
@@ -286,19 +375,19 @@ class ResultsPage extends StatelessWidget {
 
   String _getSplitTime(int index) {
     if (index == 0) return '-';
-    final current = recordedSegments[index].time;
-    final previous = recordedSegments[index - 1].time;
+    final current = widget.recordedSegments[index].time;
+    final previous = widget.recordedSegments[index - 1].time;
     return _formatDuration(current - previous);
   }
 
   String _getStrokeFrequency(int index) {
     if (index == 0) return '-';
 
-    final currentAttributes = intervalAttributes[index - 1];
+    final currentAttributes = widget.intervalAttributes[index - 1];
     if (currentAttributes.strokeCount == 0) return '-';
 
-    final startSegment = recordedSegments[index - 1];
-    final endSegment = recordedSegments[index];
+    final startSegment = widget.recordedSegments[index - 1];
+    final endSegment = widget.recordedSegments[index];
 
     final isSwimmingSegment = (startSegment.checkPoint ==
                 CheckPoint.breakOut ||
@@ -322,11 +411,11 @@ class ResultsPage extends StatelessWidget {
   String _getStrokeLength(int index) {
     if (index == 0) return '-';
 
-    final currentAttributes = intervalAttributes[index - 1];
+    final currentAttributes = widget.intervalAttributes[index - 1];
     if (currentAttributes.strokeCount == 0) return '-';
 
-    final startSegment = recordedSegments[index - 1];
-    final endSegment = recordedSegments[index];
+    final startSegment = widget.recordedSegments[index - 1];
+    final endSegment = widget.recordedSegments[index];
 
     final isSwimmingSegment = (startSegment.checkPoint ==
                 CheckPoint.breakOut ||

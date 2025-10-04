@@ -119,4 +119,19 @@ class UserRepository {
     }
     return null;
   }
+
+  Future<List<AppUser>> getUsers() async {
+    try {
+      final QuerySnapshot snapshot = await usersCollection.get();
+      return snapshot.docs
+          .map(
+            (doc) =>
+                AppUser.fromJson(doc.id, doc.data() as Map<String, dynamic>),
+          )
+          .toList();
+    } catch (e) {
+      debugPrint("Error fetching all users: $e");
+      return [];
+    }
+  }
 }

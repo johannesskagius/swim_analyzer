@@ -157,6 +157,8 @@ class Race {
   final int poolLength;
   final String stroke;
   final int distance;
+  final String? coachId;
+  final String? swimmerId;
   final List<AnalyzedSegment> segments;
 
   Race({
@@ -165,16 +167,27 @@ class Race {
     required this.stroke,
     required this.distance,
     required this.segments,
+    this.coachId,
+    this.swimmerId,
   });
 
   /// Converts this object into a Map for Firestore.
   Map<String, dynamic> toJson() {
-    return {
+    final data = <String, dynamic>{
       'eventName': eventName,
       'poolLength': poolLength,
       'stroke': stroke,
       'distance': distance,
       'segments': segments.map((s) => s.toJson()).toList(),
     };
+
+    if (coachId != null) {
+      data['coachId'] = coachId;
+    }
+    if (swimmerId != null) {
+      data['swimmerId'] = swimmerId;
+    }
+
+    return data;
   }
 }

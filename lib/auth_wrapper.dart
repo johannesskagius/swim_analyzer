@@ -1,6 +1,7 @@
+
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-import 'package:swim_analyzer/analysis_page.dart';
+import 'package:swim_analyzer/home_page.dart';
 import 'package:swim_analyzer/sign_in_page.dart';
 
 class AuthWrapper extends StatelessWidget {
@@ -13,7 +14,7 @@ class AuthWrapper extends StatelessWidget {
       builder: (context, snapshot) {
         // User is logged in
         if (snapshot.connectionState == ConnectionState.active && snapshot.hasData) {
-          return RaceAnalysisPage();
+          return const HomePage();
         }
 
         // User is not logged in

@@ -2,10 +2,10 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:swim_analyzer/auth_wrapper.dart';
-import 'package:swim_analyzer/race_repository.dart';
-import 'package:swim_analyzer/user_repository.dart';
+import 'package:swim_apps_shared/swim_apps_shared.dart';
 
+
+import 'auth_wrapper.dart';
 import 'firebase_options.dart';
 
 void main() async {
@@ -21,14 +21,14 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MultiProvider(
       providers: [
-        Provider<FirebaseFirestore>(
-          create: (_) => FirebaseFirestore.instance,
+        Provider<FirestoreHelper>(
+          create: (_) => FirestoreHelper(firestore: FirebaseFirestore.instance),
         ),
-        ProxyProvider<FirebaseFirestore, UserRepository>(
-          update: (_, db, __) => UserRepository(db),
+        Provider<UserRepository>(
+          create: (_) => UserRepository(FirebaseFirestore.instance),
         ),
-        ProxyProvider<FirebaseFirestore, RaceRepository>(
-          update: (_, db, __) => RaceRepository(db),
+        Provider<RaceRepository>(
+          create: (_) => RaceRepository(FirebaseFirestore.instance),
         ),
       ],
       child: MaterialApp(

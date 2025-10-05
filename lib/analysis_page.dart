@@ -4,8 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:permission_handler/permission_handler.dart';
-import 'package:swim_analyzer/race_model.dart';
 import 'package:swim_analyzer/results_page.dart';
+import 'package:swim_apps_shared/swim_apps_shared.dart';
 import 'package:video_player/video_player.dart';
 
 class RaceAnalysisPage extends StatefulWidget {
@@ -101,7 +101,7 @@ class _RaceAnalysisPageState extends State<RaceAnalysisPage> {
             mainAxisSize: MainAxisSize.min,
             children: Stroke.values.map((stroke) {
               return ListTile(
-                title: Text(stroke.displayName),
+                title: Text(stroke.description),
                 onTap: () {
                   Navigator.of(context).pop(stroke);
                 },

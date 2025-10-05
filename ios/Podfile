@@ -41,6 +41,7 @@ post_install do |installer|
     flutter_additional_ios_build_settings(target)
 
     target.build_configurations.each do |config|
+      config.build_settings['COMPILER_INDEX_STORE_ENABLE'] = "NO"
       # You can remove unused permissions here
       # for more information: https://github.com/Baseflow/flutter-permission-handler/blob/main/permission_handler_apple/ios/Classes/PermissionHandlerEnums.h
       config.build_settings['GCC_PREPROCESSOR_DEFINITIONS'] ||= [

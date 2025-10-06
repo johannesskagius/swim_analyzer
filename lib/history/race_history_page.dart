@@ -44,7 +44,7 @@ class _RaceHistoryPageState extends State<RaceHistoryPage> {
 
   @override
   Widget build(BuildContext context) {
-    final raceRepository = Provider.of<RaceRepository>(context);
+    final raceRepository = Provider.of<AnalyzesRepository>(context);
     final userId = FirebaseAuth.instance.currentUser?.uid;
 
     print(userId);
@@ -63,8 +63,8 @@ class _RaceHistoryPageState extends State<RaceHistoryPage> {
       ),
       body: userId == null
           ? const Center(child: Text('You must be logged in to view race history.'))
-          : StreamBuilder<List<Race>>(
-              stream: raceRepository.getRacesForUser(userId),
+          : StreamBuilder<List<RaceAnalysis>>(
+              stream: raceRepository.getStreamOfRacesForUser(userId),
               builder: (context, snapshot) {
                 if (snapshot.connectionState == ConnectionState.waiting) {
                   return const Center(child: CircularProgressIndicator());
@@ -84,9 +84,9 @@ class _RaceHistoryPageState extends State<RaceHistoryPage> {
                     final race = races[index];
                     final isSelected = _selectedRaceIds.contains(race.id);
                     return ListTile(
-                      title: Text(race.raceName),
+                      title: Text(race.eventName??'eventName'),
                       subtitle: Text(
-                        '${race.eventName} - ${DateFormat('yyyy-MM-dd').format(race.raceDate)}',
+                        '${race.eventName} - ${race.raceDate != null ? DateFormat('yyyy-MM-dd').format(race.raceDate!):''}',
                       ),
                       onTap: () => _toggleSelection(race.id!),
                       tileColor: isSelected ? Colors.blue.withOpacity(0.2) : null,

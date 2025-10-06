@@ -412,7 +412,7 @@ class _RaceAnalysisPageState extends State<RaceAnalysisPage> {
       }
     }
 
-    final lapLength = _currentEvent!.poolLength;
+    final lapLength = _currentEvent!.poolLength.distance;
 
     switch (cp) {
       case CheckPoint.start:

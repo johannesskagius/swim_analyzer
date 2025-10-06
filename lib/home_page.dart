@@ -1,7 +1,7 @@
-
 import 'package:flutter/material.dart';
 import 'package:swim_analyzer/analysis_page.dart';
 import 'package:swim_analyzer/history/race_history_page.dart';
+import 'package:swim_analyzer/settings_page.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -16,6 +16,7 @@ class _HomePageState extends State<HomePage> {
   static const List<Widget> _widgetOptions = <Widget>[
     RaceAnalysisPage(),
     RaceHistoryPage(),
+    SettingsPage(),
   ];
 
   void _onItemTapped(int index) {
@@ -42,8 +43,8 @@ class _HomePageState extends State<HomePage> {
             label: 'Races',
           ),
           BottomNavigationBarItem(
-            icon: Icon(Icons.code),
-            label: 'Development',
+            icon: Icon(Icons.settings),
+            label: 'Settings',
           ),
         ],
         currentIndex: _selectedIndex,

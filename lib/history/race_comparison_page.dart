@@ -1,7 +1,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:swim_apps_shared/helpers/race_repository.dart';
+import 'package:swim_apps_shared/helpers/analyzes_repository.dart';
 import 'package:swim_apps_shared/swim_apps_shared.dart';
 
 class RaceComparisonPage extends StatelessWidget {
@@ -11,13 +11,13 @@ class RaceComparisonPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final raceRepository = Provider.of<RaceRepository>(context);
+    final raceRepository = Provider.of<AnalyzesRepository>(context);
 
     return Scaffold(
       appBar: AppBar(
         title: const Text('Race Comparison'),
       ),
-      body: FutureBuilder<List<Race>>(
+      body: FutureBuilder<List<RaceAnalysis>>(
         future: Future.wait(raceIds.map((id) => raceRepository.getRace(id))),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
@@ -43,7 +43,7 @@ class RaceComparisonPage extends StatelessWidget {
     );
   }
 
-  Widget _buildComparisonTable(BuildContext context, List<Race> races) {
+  Widget _buildComparisonTable(BuildContext context, List<RaceAnalysis> races) {
     // Assume all races have the same number of segments
     final segmentCount = races.isNotEmpty ? races.first.segments.length : 0;
     if (segmentCount == 0) {
@@ -52,7 +52,7 @@ class RaceComparisonPage extends StatelessWidget {
 
     final List<DataColumn> columns = [
       const DataColumn(label: Text('Metric')),
-      ...races.map((race) => DataColumn(label: Text(race.raceName))),
+      ...races.map((race) => DataColumn(label: Text(race.eventName??'eventName'))),
     ];
 
     final List<DataRow> rows = [];

@@ -25,6 +25,7 @@ class _ResultsPageState extends State<ResultsPage> {
   final _raceNameController = TextEditingController();
   final _raceDateController = TextEditingController();
   bool _showResults = false;
+
   // Editable state for stroke counts
   late List<double> _editableStrokeCounts;
 
@@ -55,10 +56,7 @@ class _ResultsPageState extends State<ResultsPage> {
         throw Exception("No user logged in");
       }
 
-      final currentUser = await userRepo.getMyProfile();
-      if (currentUser == null) {
-        throw Exception("Could not retrieve user profile.");
-      }
+      final AppUser? currentUser = await userRepo.getMyProfile();
 
       List<AppUser> swimmers = [];
       List<AppUser> coaches = [];
@@ -108,7 +106,8 @@ class _ResultsPageState extends State<ResultsPage> {
 
     for (int i = 0; i < widget.recordedSegments.length; i++) {
       final segment = widget.recordedSegments[i];
-      final originalAttributes = i > 0 ? widget.intervalAttributes[i - 1] : null;
+      final originalAttributes =
+          i > 0 ? widget.intervalAttributes[i - 1] : null;
       final editableStrokeCount = i > 0 ? _editableStrokeCounts[i - 1] : 0.0;
 
       final totalTime = segment.time - startTime;
@@ -159,7 +158,7 @@ class _ResultsPageState extends State<ResultsPage> {
           .showSnackBar(SnackBar(content: Text('Error saving race: $e')));
     }
   }
-  
+
   void _editStrokeCount(int attributeIndex) {
     double tempValue = _editableStrokeCounts[attributeIndex];
     showDialog(
@@ -174,15 +173,15 @@ class _ResultsPageState extends State<ResultsPage> {
                 children: [
                   IconButton(
                     icon: const Icon(Icons.remove),
-                    onPressed: () => setDialogState(() =>
-                        tempValue = (tempValue - 0.5).clamp(0.0, 50.0)),
+                    onPressed: () => setDialogState(
+                        () => tempValue = (tempValue - 0.5).clamp(0.0, 50.0)),
                   ),
                   Text(tempValue.toStringAsFixed(1),
                       style: Theme.of(context).textTheme.headlineSmall),
                   IconButton(
                     icon: const Icon(Icons.add),
-                    onPressed: () => setDialogState(() =>
-                        tempValue = (tempValue + 0.5).clamp(0.0, 50.0)),
+                    onPressed: () => setDialogState(
+                        () => tempValue = (tempValue + 0.5).clamp(0.0, 50.0)),
                   ),
                 ],
               ),
@@ -208,7 +207,6 @@ class _ResultsPageState extends State<ResultsPage> {
     );
   }
 
-
   @override
   Widget build(BuildContext context) {
     final bool isBreaststroke = widget.event.stroke == Stroke.breaststroke;
@@ -228,7 +226,7 @@ class _ResultsPageState extends State<ResultsPage> {
               controller: _raceNameController,
               decoration: const InputDecoration(labelText: 'Race Name'),
               validator: (value) =>
-              value!.isEmpty ? 'Please enter a name' : null,
+                  value!.isEmpty ? 'Please enter a name' : null,
             ),
             const SizedBox(height: 16),
             TextFormField(
@@ -265,7 +263,7 @@ class _ResultsPageState extends State<ResultsPage> {
                   ? null
                   : (value) => setState(() => _selectedSwimmerId = value),
               validator: (value) =>
-              value == null ? 'Please select a swimmer' : null,
+                  value == null ? 'Please select a swimmer' : null,
             ),
             const SizedBox(height: 16),
             DropdownButtonFormField<String>(
@@ -281,7 +279,7 @@ class _ResultsPageState extends State<ResultsPage> {
                   ? null
                   : (value) => setState(() => _selectedCoachId = value),
               validator: (value) =>
-              value == null ? 'Please select a coach' : null,
+                  value == null ? 'Please select a coach' : null,
             ),
             const SizedBox(height: 24),
             ElevatedButton(
@@ -303,15 +301,15 @@ class _ResultsPageState extends State<ResultsPage> {
     Widget buildResultsView() {
       final swimmerName = _swimmers
           .firstWhere((s) => s.id == _selectedSwimmerId,
-          orElse: () => Swimmer(id: '', name: 'N/A', email: ''))
+              orElse: () => Swimmer(id: '', name: 'N/A', email: ''))
           .name;
       final coachName = _coaches
           .firstWhere((c) => c.id == _selectedCoachId,
-          orElse: () => Coach(id: '', name: 'N/A', email: ''))
+              orElse: () => Coach(id: '', name: 'N/A', email: ''))
           .name;
       final breakoutEstimate = _getBreakoutEstimate();
       final startTime =
-      hasRecordedData ? widget.recordedSegments[0].time : Duration.zero;
+          hasRecordedData ? widget.recordedSegments[0].time : Duration.zero;
 
       final List<DataColumn> columns = [
         const DataColumn(label: Text('Distance')),
@@ -373,24 +371,22 @@ class _ResultsPageState extends State<ResultsPage> {
               columns: columns,
               rows: List<DataRow>.generate(
                 widget.recordedSegments.length,
-                    (index) {
+                (index) {
                   final segment = widget.recordedSegments[index];
-                  final totalTime =
-                  _formatDuration(segment.time - startTime);
+                  final totalTime = _formatDuration(segment.time - startTime);
                   final splitTime = _getSplitTime(index);
                   final strokeFreq = _getStrokeFrequency(index);
                   final strokeLength = _getStrokeLength(index);
 
-                  final attributes = index > 0
-                      ? widget.intervalAttributes[index - 1]
-                      : null;
+                  final attributes =
+                      index > 0 ? widget.intervalAttributes[index - 1] : null;
 
                   final strokeCountText = index > 0
                       ? _editableStrokeCounts[index - 1].toStringAsFixed(
-                      _editableStrokeCounts[index - 1].truncate() ==
-                          _editableStrokeCounts[index - 1]
-                          ? 0
-                          : 1)
+                          _editableStrokeCounts[index - 1].truncate() ==
+                                  _editableStrokeCounts[index - 1]
+                              ? 0
+                              : 1)
                       : '';
 
                   return DataRow(cells: <DataCell>[
@@ -459,12 +455,12 @@ class _ResultsPageState extends State<ResultsPage> {
       ),
       body: hasRecordedData
           ? SingleChildScrollView(
-        padding: const EdgeInsets.all(16.0),
-        child: Form(
-          key: _formKey,
-          child: _showResults ? buildResultsView() : buildDetailsForm(),
-        ),
-      )
+              padding: const EdgeInsets.all(16.0),
+              child: Form(
+                key: _formKey,
+                child: _showResults ? buildResultsView() : buildDetailsForm(),
+              ),
+            )
           : const Center(child: Text('No results to display.')),
     );
   }
@@ -501,14 +497,18 @@ class _ResultsPageState extends State<ResultsPage> {
             .length;
         return (previousTurnCount * poolLengthValue) + 15.0;
       case CheckPoint.breakOut:
-      // Find the distance of the last wall (start or turn) before this breakout
+        // Find the distance of the last wall (start or turn) before this breakout
         final lapStartIndex = widget.recordedSegments.lastIndexWhere(
-              (s) => s.checkPoint == CheckPoint.start || s.checkPoint == CheckPoint.turn,
+          (s) =>
+              s.checkPoint == CheckPoint.start ||
+              s.checkPoint == CheckPoint.turn,
           index - 1,
         );
-        if (lapStartIndex == -1) return 0.0; // Should not happen in a valid race
+        if (lapStartIndex == -1)
+          return 0.0; // Should not happen in a valid race
 
-        final lastWallDistance = _getDistanceAsDouble(widget.recordedSegments[lapStartIndex], lapStartIndex);
+        final lastWallDistance = _getDistanceAsDouble(
+            widget.recordedSegments[lapStartIndex], lapStartIndex);
 
         // Calculate the breakout distance for this specific lap (distance from the wall)
         final breakoutDistFromWall = _getBreakoutDistanceForLap(index);
@@ -516,7 +516,7 @@ class _ResultsPageState extends State<ResultsPage> {
         // The cumulative distance is the wall's distance + the breakout distance
         return lastWallDistance + (breakoutDistFromWall ?? 0.0);
       default:
-      // Handles any other unexpected checkpoint types
+        // Handles any other unexpected checkpoint types
         return 0.0;
     }
   }
@@ -541,7 +541,7 @@ class _ResultsPageState extends State<ResultsPage> {
     final strokeCount = _editableStrokeCounts[index - 1];
     if (strokeCount == 0) return null;
     final splitTime = (widget.recordedSegments[index].time -
-        widget.recordedSegments[index - 1].time)
+            widget.recordedSegments[index - 1].time)
         .inMilliseconds;
     if (splitTime == 0) return null;
     return strokeCount / (splitTime / 1000 / 60);
@@ -557,7 +557,8 @@ class _ResultsPageState extends State<ResultsPage> {
     if (currentSegment.checkPoint != CheckPoint.breakOut) return null;
 
     final lapStartIndex = widget.recordedSegments.lastIndexWhere(
-      (s) => s.checkPoint == CheckPoint.start || s.checkPoint == CheckPoint.turn,
+      (s) =>
+          s.checkPoint == CheckPoint.start || s.checkPoint == CheckPoint.turn,
       segmentIndex - 1,
     );
 
@@ -569,29 +570,34 @@ class _ResultsPageState extends State<ResultsPage> {
 
     // Find 15m mark for this specific lap to calculate speed
     final nextTurnIndex = widget.recordedSegments.indexWhere(
-      (s) => s.checkPoint == CheckPoint.turn || s.checkPoint == CheckPoint.finish,
+      (s) =>
+          s.checkPoint == CheckPoint.turn || s.checkPoint == CheckPoint.finish,
       lapStartIndex + 1,
     );
-    
-    final endOfLapIndex = nextTurnIndex == -1 ? widget.recordedSegments.length : nextTurnIndex + 1;
 
-    final fifteenMeterMarkIndex = widget.recordedSegments.sublist(lapStartIndex, endOfLapIndex).indexWhere(
-      (s) => s.checkPoint == CheckPoint.fifteenMeterMark,
-    );
+    final endOfLapIndex = nextTurnIndex == -1
+        ? widget.recordedSegments.length
+        : nextTurnIndex + 1;
+
+    final fifteenMeterMarkIndex = widget.recordedSegments
+        .sublist(lapStartIndex, endOfLapIndex)
+        .indexWhere(
+          (s) => s.checkPoint == CheckPoint.fifteenMeterMark,
+        );
 
     double avgUnderwaterSpeed = 2.0; // Fallback speed
 
     if (fifteenMeterMarkIndex != -1) {
-      final fifteenMeterSegment = widget.recordedSegments[lapStartIndex + fifteenMeterMarkIndex];
+      final fifteenMeterSegment =
+          widget.recordedSegments[lapStartIndex + fifteenMeterMarkIndex];
       final timeTo15m = fifteenMeterSegment.time - lapStartSegment.time;
       if (timeTo15m > Duration.zero) {
         avgUnderwaterSpeed = 15.0 / (timeTo15m.inMilliseconds / 1000.0);
       }
     }
-    
+
     return avgUnderwaterSpeed * (timeToBreakout.inMilliseconds / 1000.0);
   }
-
 
   double? _getStrokeLengthAsDouble(int index) {
     if (index == 0) return null;
@@ -600,8 +606,10 @@ class _ResultsPageState extends State<ResultsPage> {
 
     // Get the correct cumulative distance for the previous and current points.
     // The new _getDistanceAsDouble now correctly calculates the distance for ALL checkpoints.
-    final prevDist = _getDistanceAsDouble(widget.recordedSegments[index - 1], index - 1);
-    final currentDist = _getDistanceAsDouble(widget.recordedSegments[index], index);
+    final prevDist =
+        _getDistanceAsDouble(widget.recordedSegments[index - 1], index - 1);
+    final currentDist =
+        _getDistanceAsDouble(widget.recordedSegments[index], index);
 
     final distanceCovered = currentDist - prevDist;
 
@@ -622,7 +630,7 @@ class _ResultsPageState extends State<ResultsPage> {
         .where((s) => s.checkPoint == CheckPoint.breakOut)
         .firstOrNull;
     if (breakOutSegment == null) return null;
-    
+
     final breakoutIndex = widget.recordedSegments.indexOf(breakOutSegment);
     final distance = _getBreakoutDistanceForLap(breakoutIndex);
 

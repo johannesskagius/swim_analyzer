@@ -135,16 +135,6 @@ class _SignInPageState extends State<SignInPage> {
                     ),
                 ],
                 ),
-                const SizedBox(height: 16),
-                const Divider(),
-                const SizedBox(height: 16),
-                ElevatedButton(
-                  onPressed: _signInAnonymously,
-                  style: ElevatedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 15),
-                  ),
-                  child: const Text('Sign In Anonymously', style: TextStyle(fontSize: 16)),
-                ),
               ],
             ),
           ),

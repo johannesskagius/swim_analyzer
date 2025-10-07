@@ -24,7 +24,7 @@ class _ResultsPageState extends State<ResultsPage> {
   final _formKey = GlobalKey<FormState>();
   final _raceNameController = TextEditingController();
   final _raceDateController = TextEditingController();
-
+  bool _showResults = false;
   // Editable state for stroke counts
   late List<double> _editableStrokeCounts;
 
@@ -216,25 +216,241 @@ class _ResultsPageState extends State<ResultsPage> {
     final bool isSwimmer = _currentUser is Swimmer;
     final bool isCoach = _currentUser is Coach;
 
-    final List<DataColumn> columns = [
-      const DataColumn(label: Text('Distance')),
-      const DataColumn(label: Text('Time')),
-      if (!isBreaststroke) const DataColumn(label: Text('Dolphin Kicks')),
-      const DataColumn(label: Text('Strokes')),
-      if (!isBreaststroke) const DataColumn(label: Text('Breaths')),
-      const DataColumn(label: Text('Stroke Freq.')),
-      const DataColumn(label: Text('Stroke Len.')),
-    ];
+    // Helper widget for the initial input form (Step 1)
+    Widget buildDetailsForm() {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          if (_isLoading)
+            const Center(child: CircularProgressIndicator())
+          else ...[
+            TextFormField(
+              controller: _raceNameController,
+              decoration: const InputDecoration(labelText: 'Race Name'),
+              validator: (value) =>
+              value!.isEmpty ? 'Please enter a name' : null,
+            ),
+            const SizedBox(height: 16),
+            TextFormField(
+              controller: _raceDateController,
+              decoration: const InputDecoration(
+                labelText: 'Race Date',
+                suffixIcon: Icon(Icons.calendar_today),
+              ),
+              readOnly: true,
+              onTap: () async {
+                final pickedDate = await showDatePicker(
+                  context: context,
+                  initialDate: DateTime.now(),
+                  firstDate: DateTime(2000),
+                  lastDate: DateTime(2101),
+                );
+                if (pickedDate != null) {
+                  _raceDateController.text =
+                      DateFormat('yyyy-MM-dd').format(pickedDate);
+                }
+              },
+            ),
+            const SizedBox(height: 16),
+            DropdownButtonFormField<String>(
+              value: _selectedSwimmerId,
+              decoration: const InputDecoration(labelText: 'Swimmer'),
+              items: _swimmers.map((user) {
+                return DropdownMenuItem(
+                  value: user.id,
+                  child: Text(user.name),
+                );
+              }).toList(),
+              onChanged: isSwimmer
+                  ? null
+                  : (value) => setState(() => _selectedSwimmerId = value),
+              validator: (value) =>
+              value == null ? 'Please select a swimmer' : null,
+            ),
+            const SizedBox(height: 16),
+            DropdownButtonFormField<String>(
+              initialValue: _selectedCoachId,
+              decoration: const InputDecoration(labelText: 'Coach'),
+              items: _coaches.map((user) {
+                return DropdownMenuItem(
+                  value: user.id,
+                  child: Text(user.name),
+                );
+              }).toList(),
+              onChanged: (isSwimmer || isCoach)
+                  ? null
+                  : (value) => setState(() => _selectedCoachId = value),
+              validator: (value) =>
+              value == null ? 'Please select a coach' : null,
+            ),
+            const SizedBox(height: 24),
+            ElevatedButton(
+              onPressed: () {
+                if (_formKey.currentState!.validate()) {
+                  setState(() {
+                    _showResults = true;
+                  });
+                }
+              },
+              child: const Text('View Results'),
+            ),
+          ]
+        ],
+      );
+    }
 
-    final breakoutEstimate = _getBreakoutEstimate();
-    final startTime =
-        hasRecordedData ? widget.recordedSegments[0].time : Duration.zero;
+    // Helper widget for displaying the results table (Step 2)
+    Widget buildResultsView() {
+      final swimmerName = _swimmers
+          .firstWhere((s) => s.id == _selectedSwimmerId,
+          orElse: () => Swimmer(id: '', name: 'N/A', email: ''))
+          .name;
+      final coachName = _coaches
+          .firstWhere((c) => c.id == _selectedCoachId,
+          orElse: () => Coach(id: '', name: 'N/A', email: ''))
+          .name;
+      final breakoutEstimate = _getBreakoutEstimate();
+      final startTime =
+      hasRecordedData ? widget.recordedSegments[0].time : Duration.zero;
+
+      final List<DataColumn> columns = [
+        const DataColumn(label: Text('Distance')),
+        const DataColumn(label: Text('Time')),
+        if (!isBreaststroke) const DataColumn(label: Text('Dolphin Kicks')),
+        const DataColumn(label: Text('Strokes')),
+        if (!isBreaststroke) const DataColumn(label: Text('Breaths')),
+        const DataColumn(label: Text('Stroke Freq.')),
+        const DataColumn(label: Text('Stroke Len.')),
+      ];
+
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Card(
+            margin: const EdgeInsets.only(bottom: 8.0),
+            child: Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(_raceNameController.text,
+                      style: Theme.of(context).textTheme.headlineSmall),
+                  const SizedBox(height: 8),
+                  Row(children: [
+                    const Icon(Icons.person, size: 16, color: Colors.grey),
+                    const SizedBox(width: 8),
+                    Text('Swimmer: $swimmerName'),
+                  ]),
+                  const SizedBox(height: 4),
+                  Row(children: [
+                    const Icon(Icons.support, size: 16, color: Colors.grey),
+                    const SizedBox(width: 8),
+                    Text('Coach: $coachName'),
+                  ]),
+                  const SizedBox(height: 4),
+                  Row(children: [
+                    const Icon(Icons.calendar_today,
+                        size: 16, color: Colors.grey),
+                    const SizedBox(width: 8),
+                    Text('Date: ${_raceDateController.text}'),
+                  ]),
+                ],
+              ),
+            ),
+          ),
+          Align(
+            alignment: Alignment.centerRight,
+            child: TextButton.icon(
+              icon: const Icon(Icons.edit, size: 16),
+              label: const Text('Edit Details'),
+              onPressed: () => setState(() => _showResults = false),
+            ),
+          ),
+          const SizedBox(height: 8),
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: DataTable(
+              columns: columns,
+              rows: List<DataRow>.generate(
+                widget.recordedSegments.length,
+                    (index) {
+                  final segment = widget.recordedSegments[index];
+                  final totalTime =
+                  _formatDuration(segment.time - startTime);
+                  final splitTime = _getSplitTime(index);
+                  final strokeFreq = _getStrokeFrequency(index);
+                  final strokeLength = _getStrokeLength(index);
+
+                  final attributes = index > 0
+                      ? widget.intervalAttributes[index - 1]
+                      : null;
+
+                  final strokeCountText = index > 0
+                      ? _editableStrokeCounts[index - 1].toStringAsFixed(
+                      _editableStrokeCounts[index - 1].truncate() ==
+                          _editableStrokeCounts[index - 1]
+                          ? 0
+                          : 1)
+                      : '';
+
+                  return DataRow(cells: <DataCell>[
+                    DataCell(Text(_getDistance(segment, index))),
+                    DataCell(
+                      Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 4.0),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Text(totalTime,
+                                style: const TextStyle(
+                                    fontWeight: FontWeight.bold)),
+                            Text(splitTime,
+                                style: Theme.of(context)
+                                    .textTheme
+                                    .bodySmall
+                                    ?.copyWith(color: Colors.grey.shade700)),
+                          ],
+                        ),
+                      ),
+                    ),
+                    if (!isBreaststroke)
+                      DataCell(
+                          Text(attributes?.dolphinKickCount.toString() ?? '')),
+                    DataCell(
+                      InkWell(
+                        onTap: index > 0
+                            ? () => _editStrokeCount(index - 1)
+                            : null,
+                        child: Text(strokeCountText,
+                            style: TextStyle(
+                                color: Theme.of(context).primaryColor,
+                                fontWeight: FontWeight.bold)),
+                      ),
+                    ),
+                    if (!isBreaststroke)
+                      DataCell(Text(attributes?.breathCount.toString() ?? '')),
+                    DataCell(Text(strokeFreq)),
+                    DataCell(Text(strokeLength)),
+                  ]);
+                },
+              ),
+            ),
+          ),
+          if (breakoutEstimate != null)
+            Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Text(breakoutEstimate),
+            ),
+        ],
+      );
+    }
 
     return Scaffold(
       appBar: AppBar(
         title: Text('${widget.event.name} - Results'),
         actions: [
-          if (hasRecordedData)
+          if (hasRecordedData && _showResults)
             IconButton(
               icon: const Icon(Icons.save),
               onPressed: () => _saveRaceToFirestore(context),
@@ -243,163 +459,12 @@ class _ResultsPageState extends State<ResultsPage> {
       ),
       body: hasRecordedData
           ? SingleChildScrollView(
-              padding: const EdgeInsets.all(16.0),
-              child: Form(
-                key: _formKey,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    if (_isLoading)
-                      const Center(child: CircularProgressIndicator())
-                    else ...[
-                      TextFormField(
-                        controller: _raceNameController,
-                        decoration:
-                            const InputDecoration(labelText: 'Race Name'),
-                        validator: (value) =>
-                            value!.isEmpty ? 'Please enter a name' : null,
-                      ),
-                      const SizedBox(height: 16),
-                      TextFormField(
-                        controller: _raceDateController,
-                        decoration: const InputDecoration(
-                          labelText: 'Race Date',
-                          suffixIcon: Icon(Icons.calendar_today),
-                        ),
-                        readOnly: true,
-                        onTap: () async {
-                          final pickedDate = await showDatePicker(
-                            context: context,
-                            initialDate: DateTime.now(),
-                            firstDate: DateTime(2000),
-                            lastDate: DateTime(2101),
-                          );
-                          if (pickedDate != null) {
-                            _raceDateController.text =
-                                DateFormat('yyyy-MM-dd').format(pickedDate);
-                          }
-                        },
-                      ),
-                      const SizedBox(height: 16),
-                      DropdownButtonFormField<String>(
-                        value: _selectedSwimmerId,
-                        decoration: const InputDecoration(labelText: 'Swimmer'),
-                        items: _swimmers.map((user) {
-                          return DropdownMenuItem(
-                            value: user.id,
-                            child: Text(user.name),
-                          );
-                        }).toList(),
-                        onChanged: isSwimmer
-                            ? null
-                            : (value) =>
-                                setState(() => _selectedSwimmerId = value),
-                        validator: (value) =>
-                            value == null ? 'Please select a swimmer' : null,
-                      ),
-                      const SizedBox(height: 16),
-                      DropdownButtonFormField<String>(
-                        initialValue: _selectedCoachId,
-                        decoration: const InputDecoration(labelText: 'Coach'),
-                        items: _coaches.map((user) {
-                          return DropdownMenuItem(
-                            value: user.id,
-                            child: Text(user.name),
-                          );
-                        }).toList(),
-                        onChanged: (isSwimmer || isCoach)
-                            ? null
-                            : (value) =>
-                                setState(() => _selectedCoachId = value),
-                        validator: (value) =>
-                            value == null ? 'Please select a coach' : null,
-                      ),
-                    ],
-                    const SizedBox(height: 24),
-                    SingleChildScrollView(
-                      scrollDirection: Axis.horizontal,
-                      child: DataTable(
-                        columns: columns,
-                        rows: List<DataRow>.generate(
-                          widget.recordedSegments.length,
-                          (index) {
-                            final segment = widget.recordedSegments[index];
-                            final totalTime =
-                                _formatDuration(segment.time - startTime);
-                            final splitTime = _getSplitTime(index);
-                            final strokeFreq = _getStrokeFrequency(index);
-                            final strokeLength = _getStrokeLength(index);
-
-                            final attributes = index > 0
-                                ? widget.intervalAttributes[index - 1]
-                                : null;
-                            
-                            final strokeCountText = index > 0
-                                ? _editableStrokeCounts[index - 1]
-                                    .toStringAsFixed(
-                                        _editableStrokeCounts[index-1].truncate() == _editableStrokeCounts[index-1] ? 0 : 1
-                                    )
-                                : '';
-
-
-                            return DataRow(
-                              cells: <DataCell>[
-                                DataCell(Text(_getDistance(segment, index))),
-                                DataCell(
-                                  Padding(
-                                    padding: const EdgeInsets.symmetric(
-                                        vertical: 4.0),
-                                    child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      mainAxisAlignment:
-                                          MainAxisAlignment.center,
-                                      children: [
-                                        Text(totalTime,
-                                            style: const TextStyle(
-                                                fontWeight: FontWeight.bold)),
-                                        Text(splitTime,
-                                            style: Theme.of(context)
-                                                .textTheme
-                                                .bodySmall
-                                                ?.copyWith(
-                                                    color:
-                                                        Colors.grey.shade700)),
-                                      ],
-                                    ),
-                                  ),
-                                ),
-                                if (!isBreaststroke)
-                                  DataCell(Text(
-                                      attributes?.dolphinKickCount.toString() ??
-                                          '')),
-                                DataCell(
-                                  InkWell(
-                                    onTap: index > 0 ? () => _editStrokeCount(index -1) : null,
-                                    child: Text(strokeCountText, style: TextStyle(color: Theme.of(context).primaryColor, fontWeight: FontWeight.bold)),
-                                  ),
-                                ),
-                                if (!isBreaststroke)
-                                  DataCell(Text(
-                                      attributes?.breathCount.toString() ??
-                                          '')),
-                                DataCell(Text(strokeFreq)),
-                                DataCell(Text(strokeLength)),
-                              ],
-                            );
-                          },
-                        ),
-                      ),
-                    ),
-                    if (breakoutEstimate != null)
-                      Padding(
-                        padding: const EdgeInsets.all(16.0),
-                        child: Text(breakoutEstimate),
-                      ),
-                  ],
-                ),
-              ),
-            )
+        padding: const EdgeInsets.all(16.0),
+        child: Form(
+          key: _formKey,
+          child: _showResults ? buildResultsView() : buildDetailsForm(),
+        ),
+      )
           : const Center(child: Text('No results to display.')),
     );
   }

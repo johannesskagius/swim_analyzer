@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:swim_analyzer/analysis_page.dart';
-import 'package:swim_analyzer/history/race_history_page.dart';
 import 'package:swim_analyzer/settings_page.dart';
+import 'package:swim_apps_shared/swim_apps_shared.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -15,7 +15,7 @@ class _HomePageState extends State<HomePage> {
 
   static const List<Widget> _widgetOptions = <Widget>[
     AnalysisPage(),
-    RaceHistoryPage(),
+    RaceHistoryPage(brandIconAssetPath: 'assets/icon/icon.png'),
     SettingsPage(),
   ];
 

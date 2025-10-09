@@ -1,5 +1,11 @@
+import 'dart:convert';
+import 'dart:io';
+import 'dart:math';
+
+import 'package:crypto/crypto.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 
 class SignInPage extends StatefulWidget {
   const SignInPage({super.key});
@@ -10,18 +16,9 @@ class SignInPage extends StatefulWidget {
 
 class _SignInPageState extends State<SignInPage> {
   final _formKey = GlobalKey<FormState>();
-  final _emailController = TextEditingController(text: 'johannesskagius@gmail.com');
+  final _emailController =
+      TextEditingController(text: 'johannesskagius@gmail.com');
   final _passwordController = TextEditingController(text: 'Test123456');
-
-  Future<void> _signInAnonymously() async {
-    try {
-      await FirebaseAuth.instance.signInAnonymously();
-    } on FirebaseAuthException catch (e) {
-      _showErrorSnackbar('Failed to sign in anonymously: ${e.message}');
-    } catch (e) {
-      _showErrorSnackbar('An unexpected error occurred: $e');
-    }
-  }
 
   Future<void> _registerWithEmail() async {
     if (!_formKey.currentState!.validate()) {
@@ -53,6 +50,48 @@ class _SignInPageState extends State<SignInPage> {
     } catch (e) {
       _showErrorSnackbar('An unexpected error occurred: $e');
     }
+  }
+
+  Future<void> _signInWithApple() async {
+    try {
+      final rawNonce = _generateNonce();
+      final nonce = _sha256(rawNonce);
+
+      final appleCredential = await SignInWithApple.getAppleIDCredential(
+        scopes: [
+          AppleIDAuthorizationScopes.email,
+          AppleIDAuthorizationScopes.fullName,
+        ],
+        nonce: nonce,
+      );
+
+      final oAuthProvider = OAuthProvider('apple.com');
+      final credential = oAuthProvider.credential(
+        idToken: appleCredential.identityToken,
+        rawNonce: rawNonce,
+        accessToken: appleCredential.authorizationCode,
+      );
+
+      await FirebaseAuth.instance.signInWithCredential(credential);
+    } catch (e, s) {
+      debugPrint(e.toString());
+      debugPrint(s.toString());
+      _showErrorSnackbar('Sign in with Apple failed: $e');
+    }
+  }
+
+  String _generateNonce([int length = 32]) {
+    final charset =
+        '0123456789ABCDEFGHIJKLMNOPQRSTUVXYZabcdefghijklmnopqrstuvwxyz-._';
+    final random = Random.secure();
+    return List.generate(length, (_) => charset[random.nextInt(charset.length)])
+        .join();
+  }
+
+  String _sha256(String input) {
+    final bytes = utf8.encode(input);
+    final digest = sha256.convert(bytes);
+    return digest.toString();
   }
 
   void _showErrorSnackbar(String message) {
@@ -133,8 +172,11 @@ class _SignInPageState extends State<SignInPage> {
                       onPressed: _registerWithEmail,
                       child: const Text('Register'),
                     ),
-                ],
+                  ],
                 ),
+                const SizedBox(height: 24),
+                if (Platform.isIOS || Platform.isMacOS)
+                  SignInWithAppleButton(onPressed: _signInWithApple),
               ],
             ),
           ),

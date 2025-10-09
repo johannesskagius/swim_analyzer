@@ -20,11 +20,10 @@ class AuthWrapper extends StatelessWidget {
           );
         }
 
-        // If the snapshot has data, the user is logged in.
-        if (snapshot.hasData && !snapshot.data!.isAnonymous) {
+        // If the snapshot has data, the user is logged in (anonymous or not).
+        if (snapshot.hasData) {
           return const HomePage();
         }
-
         // Otherwise, the user is not logged in.
         return const SignInPage();
       },

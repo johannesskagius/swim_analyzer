@@ -30,9 +30,9 @@ class _SignInPageState extends State<SignInPage> {
         password: _passwordController.text.trim(),
       );
     } on FirebaseAuthException catch (e) {
-      _showErrorSnackbar('Registration failed: ${e.message}');
+      _showErrorSnackBar('Registration failed: ${e.message}');
     } catch (e) {
-      _showErrorSnackbar('An unexpected error occurred: $e');
+      _showErrorSnackBar('An unexpected error occurred: $e');
     }
   }
 
@@ -46,9 +46,9 @@ class _SignInPageState extends State<SignInPage> {
         password: _passwordController.text.trim(),
       );
     } on FirebaseAuthException catch (e) {
-      _showErrorSnackbar('Sign in failed: ${e.message}');
+      _showErrorSnackBar('Sign in failed: ${e.message}');
     } catch (e) {
-      _showErrorSnackbar('An unexpected error occurred: $e');
+      _showErrorSnackBar('An unexpected error occurred: $e');
     }
   }
 
@@ -76,7 +76,7 @@ class _SignInPageState extends State<SignInPage> {
     } catch (e, s) {
       debugPrint(e.toString());
       debugPrint(s.toString());
-      _showErrorSnackbar('Sign in with Apple failed: $e');
+      _showErrorSnackBar('Sign in with Apple failed: $e');
     }
   }
 
@@ -94,7 +94,7 @@ class _SignInPageState extends State<SignInPage> {
     return digest.toString();
   }
 
-  void _showErrorSnackbar(String message) {
+  void _showErrorSnackBar(String message) {
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(

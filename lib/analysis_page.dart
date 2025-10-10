@@ -8,17 +8,17 @@ import 'package:swim_analyzer/results_page.dart';
 import 'package:swim_apps_shared/swim_apps_shared.dart';
 import 'package:video_player/video_player.dart';
 
-class AnalysisPage extends StatefulWidget {
-  const AnalysisPage({super.key});
+class RaceAnalysisView extends StatefulWidget {
+  const RaceAnalysisView({super.key});
 
   @override
-  State<AnalysisPage> createState() => _AnalysisPageState();
+  State<RaceAnalysisView> createState() => _RaceAnalysisViewState();
 }
 
 /// Enum to manage the user\'s current analysis focus.
 enum _AnalysisMode { timing, attributes }
 
-class _AnalysisPageState extends State<AnalysisPage> {
+class _RaceAnalysisViewState extends State<RaceAnalysisView> {
   VideoPlayerController? _controller;
   final ImagePicker _picker = ImagePicker();
   bool _isLoadingVideo = false;

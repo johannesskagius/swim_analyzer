@@ -24,7 +24,6 @@ class _ResultsPageState extends State<ResultsPage> {
   final _formKey = GlobalKey<FormState>();
   final _raceNameController = TextEditingController();
   final _raceDateController = TextEditingController();
-  bool _showResults = false;
 
   // Editable state for stroke counts
   late List<double> _editableStrokeCounts;
@@ -39,6 +38,7 @@ class _ResultsPageState extends State<ResultsPage> {
   @override
   void initState() {
     super.initState();
+    _raceNameController.text = widget.event.name;
     _raceDateController.text = DateFormat('yyyy-MM-dd').format(DateTime.now());
     // Initialize editable stroke counts from the widget's data
     _editableStrokeCounts = widget.intervalAttributes
@@ -66,7 +66,20 @@ class _ResultsPageState extends State<ResultsPage> {
       if (currentUser is Swimmer) {
         swimmers = [currentUser];
         selectedSwimmerId = currentUser.id;
-        selectedCoachId = currentUser.coachCreatorId;
+        // Attempt to pre-fill coach if available
+        if (currentUser.coachCreatorId != null &&
+            currentUser.coachCreatorId!.isNotEmpty) {
+          try {
+            final coach =
+                await userRepo.getUserDocument(currentUser.coachCreatorId!);
+            if (coach != null) {
+              coaches = [coach];
+              selectedCoachId = coach.id;
+            }
+          } catch (e) {
+            debugPrint("Could not pre-load coach: $e");
+          }
+        }
       } else if (currentUser is Coach) {
         coaches = [currentUser];
         selectedCoachId = currentUser.id;
@@ -91,7 +104,110 @@ class _ResultsPageState extends State<ResultsPage> {
     }
   }
 
-  Future<void> _saveRaceToFirestore(BuildContext context) async {
+  Future<void> _showSaveDialog() async {
+    final bool isSwimmer = _currentUser is Swimmer;
+    final bool isCoach = _currentUser is Coach;
+
+    return showDialog<void>(
+      context: context,
+      // Use a StatefulBuilder to manage the dialog's own state for dropdowns
+      builder: (BuildContext dialogContext) {
+        return StatefulBuilder(builder: (context, setDialogState) {
+          return AlertDialog(
+            title: const Text('Save Race Analysis'),
+            content: SingleChildScrollView(
+              child: Form(
+                key: _formKey,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: <Widget>[
+                    TextFormField(
+                      controller: _raceNameController,
+                      decoration: const InputDecoration(labelText: 'Race Name'),
+                      validator: (value) =>
+                          value!.isEmpty ? 'Please enter a name' : null,
+                    ),
+                    const SizedBox(height: 16),
+                    TextFormField(
+                      controller: _raceDateController,
+                      decoration: const InputDecoration(
+                        labelText: 'Race Date',
+                        suffixIcon: Icon(Icons.calendar_today),
+                      ),
+                      readOnly: true,
+                      onTap: () async {
+                        final pickedDate = await showDatePicker(
+                          context: dialogContext,
+                          initialDate: DateFormat('yyyy-MM-dd')
+                              .parse(_raceDateController.text),
+                          firstDate: DateTime(2000),
+                          lastDate: DateTime(2101),
+                        );
+                        if (pickedDate != null) {
+                          // No need for setState here as controller is updated directly
+                          _raceDateController.text =
+                              DateFormat('yyyy-MM-dd').format(pickedDate);
+                        }
+                      },
+                    ),
+                    const SizedBox(height: 16),
+                    if (_swimmers.isNotEmpty)
+                      DropdownButtonFormField<String>(
+                        value: _selectedSwimmerId,
+                        decoration: const InputDecoration(labelText: 'Swimmer'),
+                        items: _swimmers.map((user) {
+                          return DropdownMenuItem(
+                            value: user.id,
+                            child: Text(user.name),
+                          );
+                        }).toList(),
+                        onChanged: isSwimmer
+                            ? null // Disable if the user is a swimmer
+                            : (value) => setDialogState(
+                                () => _selectedSwimmerId = value),
+                        validator: (value) =>
+                            value == null ? 'Please select a swimmer' : null,
+                      ),
+                    const SizedBox(height: 16),
+                    if (_coaches.isNotEmpty)
+                      DropdownButtonFormField<String>(
+                        value: _selectedCoachId,
+                        decoration: const InputDecoration(labelText: 'Coach'),
+                        items: _coaches.map((user) {
+                          return DropdownMenuItem(
+                            value: user.id,
+                            child: Text(user.name),
+                          );
+                        }).toList(),
+                        onChanged: isSwimmer || isCoach
+                            ? null // Disable if user is swimmer or coach
+                            : (value) => setDialogState(
+                                () => _selectedCoachId = value),
+                        validator: (value) =>
+                            value == null ? 'Please select a coach' : null,
+                      ),
+                  ],
+                ),
+              ),
+            ),
+            actions: <Widget>[
+              TextButton(
+                child: const Text('Cancel'),
+                onPressed: () => Navigator.of(dialogContext).pop(),
+              ),
+              ElevatedButton(
+                child: const Text('Save'),
+                onPressed: () => _saveRaceToFirestore(dialogContext),
+              ),
+            ],
+          );
+        });
+      },
+    );
+  }
+
+  Future<void> _saveRaceToFirestore(BuildContext dialogContext) async {
     if (!_formKey.currentState!.validate()) {
       return;
     }
@@ -123,10 +239,8 @@ class _ResultsPageState extends State<ResultsPage> {
           totalTimeMillis: totalTime.inMilliseconds,
           splitTimeMillis: splitTime.inMilliseconds,
           dolphinKicks: originalAttributes?.dolphinKickCount,
-          // Use the rounded editable stroke count for saving
           strokes: editableStrokeCount.round(),
           breaths: originalAttributes?.breathCount,
-          // Use the precise double for calculation before saving
           strokeFrequency: _getStrokeFrequencyAsDouble(i),
           strokeLengthMeters: _getStrokeLengthAsDouble(i),
         ),
@@ -149,11 +263,14 @@ class _ResultsPageState extends State<ResultsPage> {
       final raceRepository =
           Provider.of<AnalyzesRepository>(context, listen: false);
       await raceRepository.addRace(newRace);
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Race analysis saved successfully!')),
       );
-      Navigator.of(context).pop();
+      Navigator.of(dialogContext).pop(); // Close the dialog
+      Navigator.of(context).pop(); // Close the results page
     } catch (e) {
+      if (!mounted) return;
       ScaffoldMessenger.of(context)
           .showSnackBar(SnackBar(content: Text('Error saving race: $e')));
     }
@@ -209,433 +326,257 @@ class _ResultsPageState extends State<ResultsPage> {
 
   @override
   Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(widget.event.name),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.save),
+            onPressed: _isLoading ? null : _showSaveDialog,
+            tooltip: 'Save Race',
+          ),
+        ],
+      ),
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : buildResultsView(),
+    );
+  }
+
+  Widget buildResultsView() {
     final bool isBreaststroke = widget.event.stroke == Stroke.breaststroke;
     final hasRecordedData = widget.recordedSegments.isNotEmpty;
-    final bool isSwimmer = _currentUser is Swimmer;
-    final bool isCoach = _currentUser is Coach;
+    final swimmerName = _swimmers
+        .firstWhere((s) => s.id == _selectedSwimmerId, orElse: () => Swimmer(id: '', name: 'N/A', email: ''))
+        .name;
+    final coachName = _coaches
+        .firstWhere((c) => c.id == _selectedCoachId, orElse: () => Coach(id: '', name: 'N/A', email: ''))
+        .name;
+    final breakoutEstimate = _getBreakoutEstimate();
+    final startTime =
+        hasRecordedData ? widget.recordedSegments[0].time : Duration.zero;
 
-    // Helper widget for the initial input form (Step 1)
-    Widget buildDetailsForm() {
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          if (_isLoading)
-            const Center(child: CircularProgressIndicator())
-          else ...[
-            TextFormField(
-              controller: _raceNameController,
-              decoration: const InputDecoration(labelText: 'Race Name'),
-              validator: (value) =>
-                  value!.isEmpty ? 'Please enter a name' : null,
-            ),
-            const SizedBox(height: 16),
-            TextFormField(
-              controller: _raceDateController,
-              decoration: const InputDecoration(
-                labelText: 'Race Date',
-                suffixIcon: Icon(Icons.calendar_today),
-              ),
-              readOnly: true,
-              onTap: () async {
-                final pickedDate = await showDatePicker(
-                  context: context,
-                  initialDate: DateTime.now(),
-                  firstDate: DateTime(2000),
-                  lastDate: DateTime(2101),
-                );
-                if (pickedDate != null) {
-                  _raceDateController.text =
-                      DateFormat('yyyy-MM-dd').format(pickedDate);
-                }
-              },
-            ),
-            const SizedBox(height: 16),
-            DropdownButtonFormField<String>(
-              value: _selectedSwimmerId,
-              decoration: const InputDecoration(labelText: 'Swimmer'),
-              items: _swimmers.map((user) {
-                return DropdownMenuItem(
-                  value: user.id,
-                  child: Text(user.name),
-                );
-              }).toList(),
-              onChanged: isSwimmer
-                  ? null
-                  : (value) => setState(() => _selectedSwimmerId = value),
-              validator: (value) =>
-                  value == null ? 'Please select a swimmer' : null,
-            ),
-            const SizedBox(height: 16),
-            DropdownButtonFormField<String>(
-              initialValue: _selectedCoachId,
-              decoration: const InputDecoration(labelText: 'Coach'),
-              items: _coaches.map((user) {
-                return DropdownMenuItem(
-                  value: user.id,
-                  child: Text(user.name),
-                );
-              }).toList(),
-              onChanged: (isSwimmer || isCoach)
-                  ? null
-                  : (value) => setState(() => _selectedCoachId = value),
-              validator: (value) =>
-                  value == null ? 'Please select a coach' : null,
-            ),
-            const SizedBox(height: 24),
-            ElevatedButton(
-              onPressed: () {
-                if (_formKey.currentState!.validate()) {
-                  setState(() {
-                    _showResults = true;
-                  });
-                }
-              },
-              child: const Text('View Results'),
-            ),
-          ]
-        ],
-      );
-    }
+    final List<DataColumn> columns = [
+      const DataColumn(label: Text('Dist.')),
+      const DataColumn(label: Text('Time')),
+      if (!isBreaststroke) const DataColumn(label: Text('Kicks')),
+      const DataColumn(label: Text('Strokes')),
+      if (!isBreaststroke) const DataColumn(label: Text('Breaths')),
+      const DataColumn(label: Text('Freq.')),
+      const DataColumn(label: Text('Len.')),
+    ];
 
-    // Helper widget for displaying the results table (Step 2)
-    Widget buildResultsView() {
-      final swimmerName = _swimmers
-          .firstWhere((s) => s.id == _selectedSwimmerId,
-              orElse: () => Swimmer(id: '', name: 'N/A', email: ''))
-          .name;
-      final coachName = _coaches
-          .firstWhere((c) => c.id == _selectedCoachId,
-              orElse: () => Coach(id: '', name: 'N/A', email: ''))
-          .name;
-      final breakoutEstimate = _getBreakoutEstimate();
-      final startTime =
-          hasRecordedData ? widget.recordedSegments[0].time : Duration.zero;
-
-      final List<DataColumn> columns = [
-        const DataColumn(label: Text('Distance')),
-        const DataColumn(label: Text('Time')),
-        if (!isBreaststroke) const DataColumn(label: Text('Dolphin Kicks')),
-        const DataColumn(label: Text('Strokes')),
-        if (!isBreaststroke) const DataColumn(label: Text('Breaths')),
-        const DataColumn(label: Text('Stroke Freq.')),
-        const DataColumn(label: Text('Stroke Len.')),
-      ];
-
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Card(
-            margin: const EdgeInsets.only(bottom: 8.0),
-            child: Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(_raceNameController.text,
-                      style: Theme.of(context).textTheme.headlineSmall),
-                  const SizedBox(height: 8),
-                  Row(children: [
-                    const Icon(Icons.person, size: 16, color: Colors.grey),
-                    const SizedBox(width: 8),
-                    Text('Swimmer: $swimmerName'),
-                  ]),
-                  const SizedBox(height: 4),
-                  Row(children: [
-                    const Icon(Icons.support, size: 16, color: Colors.grey),
-                    const SizedBox(width: 8),
-                    Text('Coach: $coachName'),
-                  ]),
-                  const SizedBox(height: 4),
-                  Row(children: [
-                    const Icon(Icons.calendar_today,
-                        size: 16, color: Colors.grey),
-                    const SizedBox(width: 8),
-                    Text('Date: ${_raceDateController.text}'),
-                  ]),
-                ],
+    return SingleChildScrollView(
+      child: Padding(
+        padding: const EdgeInsets.all(8.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Card(
+              margin: const EdgeInsets.only(bottom: 8.0),
+              child: Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        const Icon(Icons.pool, size: 16),
+                        const SizedBox(width: 8),
+                        Text('Swimmer: $swimmerName',
+                            style: Theme.of(context).textTheme.titleMedium),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        const Icon(Icons.ac_unit_outlined, size: 16),
+                        const SizedBox(width: 8),
+                        Text('Coach: $coachName',
+                            style: Theme.of(context).textTheme.titleMedium),
+                      ],
+                    ),
+                    if (breakoutEstimate != null) ...[
+                      const Divider(height: 24),
+                      Row(
+                        children: [
+                          const Icon(Icons.waves, size: 16),
+                          const SizedBox(width: 8),
+                          Text(
+                              'Avg. Breakout: ${breakoutEstimate.toStringAsFixed(1)}m'),
+                        ],
+                      ),
+                    ]
+                  ],
+                ),
               ),
             ),
-          ),
-          Align(
-            alignment: Alignment.centerRight,
-            child: TextButton.icon(
-              icon: const Icon(Icons.edit, size: 16),
-              label: const Text('Edit Details'),
-              onPressed: () => setState(() => _showResults = false),
-            ),
-          ),
-          const SizedBox(height: 8),
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: DataTable(
+            DataTable(
               columns: columns,
-              rows: List<DataRow>.generate(
+              rows: List.generate(
                 widget.recordedSegments.length,
                 (index) {
                   final segment = widget.recordedSegments[index];
-                  final totalTime = _formatDuration(segment.time - startTime);
-                  final splitTime = _getSplitTime(index);
-                  final strokeFreq = _getStrokeFrequency(index);
-                  final strokeLength = _getStrokeLength(index);
+                  final isTurnOrFinish =
+                      segment.checkPoint == CheckPoint.turn ||
+                          segment.checkPoint == CheckPoint.finish;
+                  final attributeIndex = isTurnOrFinish ? index - 1 : -1;
+                  final originalAttributes = attributeIndex != -1
+                      ? widget.intervalAttributes[attributeIndex]
+                      : null;
+                  final editableStrokeCount = attributeIndex != -1
+                      ? _editableStrokeCounts[attributeIndex]
+                      : 0.0;
 
-                  final attributes =
-                      index > 0 ? widget.intervalAttributes[index - 1] : null;
-
-                  final strokeCountText = index > 0
-                      ? _editableStrokeCounts[index - 1].toStringAsFixed(
-                          _editableStrokeCounts[index - 1].truncate() ==
-                                  _editableStrokeCounts[index - 1]
-                              ? 0
-                              : 1)
-                      : '';
-
-                  return DataRow(cells: <DataCell>[
-                    DataCell(Text(_getDistance(segment, index))),
-                    DataCell(
-                      Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 4.0),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          mainAxisAlignment: MainAxisAlignment.center,
+                  return DataRow(
+                    cells: [
+                      DataCell(
+                          Text('${_getDistanceAsString(segment, index)}m')),
+                      DataCell(Text(_formatDuration(segment.time - startTime))),
+                      if (!isBreaststroke)
+                        DataCell(Text(originalAttributes?.dolphinKickCount
+                                .toString() ??
+                            '-')),
+                      DataCell(
+                        Row(
                           children: [
-                            Text(totalTime,
-                                style: const TextStyle(
-                                    fontWeight: FontWeight.bold)),
-                            Text(splitTime,
-                                style: Theme.of(context)
-                                    .textTheme
-                                    .bodySmall
-                                    ?.copyWith(color: Colors.grey.shade700)),
+                            Text(editableStrokeCount.round().toString()),
+                            if (attributeIndex != -1)
+                              IconButton(
+                                icon: const Icon(Icons.edit, size: 16),
+                                onPressed: () => _editStrokeCount(attributeIndex),
+                                padding: EdgeInsets.zero,
+                                constraints: const BoxConstraints(),
+                              ),
                           ],
                         ),
                       ),
-                    ),
-                    if (!isBreaststroke)
-                      DataCell(
-                          Text(attributes?.dolphinKickCount.toString() ?? '')),
-                    DataCell(
-                      InkWell(
-                        onTap: index > 0
-                            ? () => _editStrokeCount(index - 1)
-                            : null,
-                        child: Text(strokeCountText,
-                            style: TextStyle(
-                                color: Theme.of(context).primaryColor,
-                                fontWeight: FontWeight.bold)),
-                      ),
-                    ),
-                    if (!isBreaststroke)
-                      DataCell(Text(attributes?.breathCount.toString() ?? '')),
-                    DataCell(Text(strokeFreq)),
-                    DataCell(Text(strokeLength)),
-                  ]);
+                      if (!isBreaststroke)
+                        DataCell(
+                            Text(originalAttributes?.breathCount.toString() ??
+                                '-')), // Default to '-' if null
+                      DataCell(Text(_getStrokeFrequencyAsString(index))),
+                      DataCell(Text(_getStrokeLengthAsString(index))),
+                    ],
+                  );
                 },
               ),
             ),
-          ),
-          if (breakoutEstimate != null)
-            Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Text(breakoutEstimate),
-            ),
-        ],
-      );
-    }
-
-    return Scaffold(
-      appBar: AppBar(
-        title: Text('${widget.event.name} - Results'),
-        actions: [
-          if (hasRecordedData && _showResults)
-            IconButton(
-              icon: const Icon(Icons.save),
-              onPressed: () => _saveRaceToFirestore(context),
-            ),
-        ],
+          ],
+        ),
       ),
-      body: hasRecordedData
-          ? SingleChildScrollView(
-              padding: const EdgeInsets.all(16.0),
-              child: Form(
-                key: _formKey,
-                child: _showResults ? buildResultsView() : buildDetailsForm(),
-              ),
-            )
-          : const Center(child: Text('No results to display.')),
     );
   }
 
+  // Helper methods to calculate and format results data
   String _formatDuration(Duration d) {
-    return '${d.inMinutes.toString().padLeft(2, '0')}:${(d.inSeconds % 60).toString().padLeft(2, '0')}.${(d.inMilliseconds % 1000).toString().padLeft(3, '0').substring(0, 2)}';
+    return '${d.inMinutes}:${(d.inSeconds % 60).toString().padLeft(2, '0')}.${(d.inMilliseconds % 1000 ~/ 10).toString().padLeft(2, '0')}';
   }
 
-  String _getSplitTime(int index) {
-    if (index == 0) return '-';
-    final split = widget.recordedSegments[index].time -
-        widget.recordedSegments[index - 1].time;
-    return '+${_formatDuration(split)}';
+  String _getDistanceAsString(RaceSegment segment, int index) {
+    if (segment.checkPoint == CheckPoint.breakOut) {
+      final prevDist =
+          index > 0 ? _getDistanceAsDouble(widget.recordedSegments[index - 1], index - 1) : 0.0;
+      return _getDistanceAsDouble(segment, index).toStringAsFixed(1);
+    }
+    return _getDistanceAsDouble(segment, index).toInt().toString();
   }
 
   double _getDistanceAsDouble(RaceSegment segment, int index) {
-    final int poolLengthValue = widget.event.poolLength.distance;
-
-    switch (segment.checkPoint) {
-      case CheckPoint.start:
-        return 0.0;
-      case CheckPoint.finish:
-        return widget.event.distance.toDouble();
-      case CheckPoint.turn:
-        final turnCount = widget.recordedSegments
-            .sublist(0, index + 1)
-            .where((s) => s.checkPoint == CheckPoint.turn)
-            .length;
-        return (turnCount * poolLengthValue).toDouble();
-      case CheckPoint.fifteenMeterMark:
-        final previousTurnCount = widget.recordedSegments
-            .sublist(0, index)
-            .where((s) => s.checkPoint == CheckPoint.turn)
-            .length;
-        return (previousTurnCount * poolLengthValue) + 15.0;
-      case CheckPoint.breakOut:
-        // Find the distance of the last wall (start or turn) before this breakout
-        final lapStartIndex = widget.recordedSegments.lastIndexWhere(
-          (s) =>
-              s.checkPoint == CheckPoint.start ||
-              s.checkPoint == CheckPoint.turn,
-          index - 1,
-        );
-        if (lapStartIndex == -1)
-          return 0.0; // Should not happen in a valid race
-
-        final lastWallDistance = _getDistanceAsDouble(
-            widget.recordedSegments[lapStartIndex], lapStartIndex);
-
-        // Calculate the breakout distance for this specific lap (distance from the wall)
-        final breakoutDistFromWall = _getBreakoutDistanceForLap(index);
-
-        // The cumulative distance is the wall's distance + the breakout distance
-        return lastWallDistance + (breakoutDistFromWall ?? 0.0);
-      default:
-        // Handles any other unexpected checkpoint types
-        return 0.0;
-    }
-  }
-
-  String _getDistance(RaceSegment segment, int index) {
-    // For breakout rows, display the calculated breakout distance from the wall.
+    final poolLength = widget.event.poolLength;
     if (segment.checkPoint == CheckPoint.breakOut) {
-      final breakoutDist = _getBreakoutDistanceForLap(index);
-      // Prefix with '*' to indicate it's a special, non-cumulative value.
-      return '*${breakoutDist?.toStringAsFixed(1) ?? 'N/A'}m';
-    }
+      final turnIndex = widget.recordedSegments
+          .sublist(0, index)
+          .lastIndexWhere((s) => s.checkPoint == CheckPoint.turn);
+      final startIndex = widget.recordedSegments
+          .sublist(0, index)
+          .lastIndexWhere((s) => s.checkPoint == CheckPoint.start);
+      final lastWallIndex = turnIndex > startIndex ? turnIndex : startIndex;
+      final wallTime = widget.recordedSegments[lastWallIndex].time;
+      final breakoutTime = segment.time;
+      final timeDiff =
+          (breakoutTime - wallTime).inMilliseconds / 1000.0; // in seconds
+      // Rough speed estimate: Assume swimmer's avg speed on that length
+      final nextWallIndex = widget.recordedSegments
+          .indexWhere((s) => (s.checkPoint == CheckPoint.turn || s.checkPoint == CheckPoint.finish) && s.time > wallTime);
+      final wallDist = (lastWallIndex == 0) ? 0.0 : (lastWallIndex / 2).ceil() * poolLength.distance.toDouble();
 
-    final dist = _getDistanceAsDouble(segment, index);
-    if (dist == 0 && segment.checkPoint != CheckPoint.start) {
-      return segment.checkPoint.toString().split('.').last;
-    }
-    return '${dist.toInt()}m';
-  }
-
-  double? _getStrokeFrequencyAsDouble(int index) {
-    if (index == 0) return null;
-    final strokeCount = _editableStrokeCounts[index - 1];
-    if (strokeCount == 0) return null;
-    final splitTime = (widget.recordedSegments[index].time -
-            widget.recordedSegments[index - 1].time)
-        .inMilliseconds;
-    if (splitTime == 0) return null;
-    return strokeCount / (splitTime / 1000 / 60);
-  }
-
-  String _getStrokeFrequency(int index) {
-    final freq = _getStrokeFrequencyAsDouble(index);
-    return freq?.toStringAsFixed(1) ?? '-';
-  }
-
-  double? _getBreakoutDistanceForLap(int segmentIndex) {
-    final currentSegment = widget.recordedSegments[segmentIndex];
-    if (currentSegment.checkPoint != CheckPoint.breakOut) return null;
-
-    final lapStartIndex = widget.recordedSegments.lastIndexWhere(
-      (s) =>
-          s.checkPoint == CheckPoint.start || s.checkPoint == CheckPoint.turn,
-      segmentIndex - 1,
-    );
-
-    if (lapStartIndex == -1) return null;
-
-    final lapStartSegment = widget.recordedSegments[lapStartIndex];
-    final timeToBreakout = currentSegment.time - lapStartSegment.time;
-    if (timeToBreakout <= Duration.zero) return null;
-
-    // Find 15m mark for this specific lap to calculate speed
-    final nextTurnIndex = widget.recordedSegments.indexWhere(
-      (s) =>
-          s.checkPoint == CheckPoint.turn || s.checkPoint == CheckPoint.finish,
-      lapStartIndex + 1,
-    );
-
-    final endOfLapIndex = nextTurnIndex == -1
-        ? widget.recordedSegments.length
-        : nextTurnIndex + 1;
-
-    final fifteenMeterMarkIndex = widget.recordedSegments
-        .sublist(lapStartIndex, endOfLapIndex)
-        .indexWhere(
-          (s) => s.checkPoint == CheckPoint.fifteenMeterMark,
-        );
-
-    double avgUnderwaterSpeed = 2.0; // Fallback speed
-
-    if (fifteenMeterMarkIndex != -1) {
-      final fifteenMeterSegment =
-          widget.recordedSegments[lapStartIndex + fifteenMeterMarkIndex];
-      final timeTo15m = fifteenMeterSegment.time - lapStartSegment.time;
-      if (timeTo15m > Duration.zero) {
-        avgUnderwaterSpeed = 15.0 / (timeTo15m.inMilliseconds / 1000.0);
+      if(nextWallIndex != -1) {
+         final nextWallTime = widget.recordedSegments[nextWallIndex].time;
+         final lapTime = (nextWallTime - wallTime).inMilliseconds / 1000.0;
+         if(lapTime > 0) {
+           final avgSpeed = poolLength.distance / lapTime;
+           return wallDist + (timeDiff * avgSpeed);
+         }
       }
+      return wallDist + 5; // fallback
+    } else {
+      final turnCount = segment.checkPoint == CheckPoint.start
+          ? 0
+          : widget.recordedSegments
+              .sublist(0, index + 1)
+              .where((s) => s.checkPoint == CheckPoint.turn)
+              .length +
+              1;
+      return turnCount * poolLength.distance.toDouble();
     }
-
-    return avgUnderwaterSpeed * (timeToBreakout.inMilliseconds / 1000.0);
   }
 
-  double? _getStrokeLengthAsDouble(int index) {
-    if (index == 0) return null;
-    final strokeCount = _editableStrokeCounts[index - 1];
+  String _getStrokeFrequencyAsString(int segmentIndex) {
+    final freq = _getStrokeFrequencyAsDouble(segmentIndex);
+    return freq != null ? freq.toStringAsFixed(1) : '-';
+  }
+
+  double? _getStrokeFrequencyAsDouble(int segmentIndex) {
+    if (segmentIndex == 0) return null;
+    final isTurnOrFinish = widget.recordedSegments[segmentIndex].checkPoint == CheckPoint.turn ||
+        widget.recordedSegments[segmentIndex].checkPoint == CheckPoint.finish;
+    if (!isTurnOrFinish) return null;
+
+    final attributeIndex = segmentIndex - 1;
+    final strokeCount = _editableStrokeCounts[attributeIndex];
     if (strokeCount <= 0) return null;
 
-    // Get the correct cumulative distance for the previous and current points.
-    // The new _getDistanceAsDouble now correctly calculates the distance for ALL checkpoints.
-    final prevDist =
-        _getDistanceAsDouble(widget.recordedSegments[index - 1], index - 1);
-    final currentDist =
-        _getDistanceAsDouble(widget.recordedSegments[index], index);
+    final prevSegment = widget.recordedSegments[segmentIndex - 1];
+    final timeDiff = (widget.recordedSegments[segmentIndex].time - prevSegment.time)
+        .inMilliseconds / 1000.0;
+    if (timeDiff <= 0) return null;
 
-    final distanceCovered = currentDist - prevDist;
-
-    if (distanceCovered <= 0) return null;
-
-    // The logic is now simple and correct for all segments because the
-    // distance calculation itself is correct.
-    return distanceCovered / strokeCount;
+    return (strokeCount / timeDiff) * 60; // strokes per minute
   }
 
-  String _getStrokeLength(int index) {
-    final length = _getStrokeLengthAsDouble(index);
-    return length != null ? '${length.toStringAsFixed(2)}m' : '-';
+  String _getStrokeLengthAsString(int segmentIndex) {
+    final length = _getStrokeLengthAsDouble(segmentIndex);
+    return length != null ? length.toStringAsFixed(2) : '-';
   }
 
-  String? _getBreakoutEstimate() {
-    final breakOutSegment = widget.recordedSegments
-        .where((s) => s.checkPoint == CheckPoint.breakOut)
-        .firstOrNull;
-    if (breakOutSegment == null) return null;
+  double? _getStrokeLengthAsDouble(int segmentIndex) {
+    if (segmentIndex == 0) return null;
+    final isTurnOrFinish = widget.recordedSegments[segmentIndex].checkPoint == CheckPoint.turn ||
+        widget.recordedSegments[segmentIndex].checkPoint == CheckPoint.finish;
+    if (!isTurnOrFinish) return null;
 
-    final breakoutIndex = widget.recordedSegments.indexOf(breakOutSegment);
-    final distance = _getBreakoutDistanceForLap(breakoutIndex);
+    final attributeIndex = segmentIndex - 1;
+    final strokeCount = _editableStrokeCounts[attributeIndex];
+    if (strokeCount <= 0) return null;
 
-    if (distance == null) return null;
+    final distance = widget.event.poolLength.distance.toDouble();
+    return distance / strokeCount;
+  }
 
-    return '* Breakout distance estimate: ${distance.toStringAsFixed(1)}m';
+  double? _getBreakoutEstimate() {
+    final breakoutSegments = widget.recordedSegments.where((s) => s.checkPoint == CheckPoint.breakOut).toList();
+    if(breakoutSegments.isEmpty) return null;
+
+    List<double> breakoutDistances = [];
+    for(final segment in breakoutSegments) {
+      final index = widget.recordedSegments.indexOf(segment);
+      final dist = _getDistanceAsDouble(segment, index);
+      final prevWallIndex = widget.recordedSegments.sublist(0, index).lastIndexWhere((s) => s.checkPoint == CheckPoint.start || s.checkPoint == CheckPoint.turn);
+      final prevWallDist = _getDistanceAsDouble(widget.recordedSegments[prevWallIndex], prevWallIndex);
+      breakoutDistances.add(dist - prevWallDist);
+    }
+
+    return breakoutDistances.first;
   }
 }

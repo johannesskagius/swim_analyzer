@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:swim_analyzer/analysis_page.dart';
 
 enum AnalyzeType {
   race,
@@ -7,6 +6,7 @@ enum AnalyzeType {
   stroke,
   turn,
 }
+
 extension AnalyzeTypeUIHelper on AnalyzeType {
   /// Returns the appropriate [IconData] for each analysis type.
   IconData get icon {
@@ -23,7 +23,6 @@ extension AnalyzeTypeUIHelper on AnalyzeType {
         return Icons.sync_alt_outlined; // Icon representing a turn or flip.
     }
   }
-
 } //How to Use the ExtensionNow, in any part of your app where you have a BuildContext and an AnalyzeType variable, you can easily access the icon and trigger navigation.Example Usage in a UI Widget:Let's imagine you have a home screen with buttons for each analysis type.Dartimport 'package:flutter/material.dart';
 // import 'package:flutter/material.dart';
 // import 'package:swim_analyzer/analyze_type.dart'; // Make sure to import the file with the extension

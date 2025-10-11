@@ -1,7 +1,8 @@
-
 import 'package:flutter/material.dart';
-import 'package:swim_analyzer/analysis_page.dart';
+import 'package:swim_analyzer/analysis/race_analysis.dart';
 import 'package:swim_analyzer/analyze_type.dart';
+import 'package:swim_analyzer/model/start_analyses_types.dart';
+import 'package:swim_analyzer/off_the_block_analysis.dart';
 import 'package:swim_analyzer/settings_page.dart';
 import 'package:swim_apps_shared/swim_apps_shared.dart';
 
@@ -12,6 +13,113 @@ class HomePage extends StatefulWidget {
 
   @override
   State<HomePage> createState() => _HomePageState();
+}
+
+class StartAnalysis extends StatelessWidget {
+  const StartAnalysis({super.key});
+
+  /// Pushes the corresponding analysis page onto the navigation stack.
+  ///
+  /// This method takes a [BuildContext] and navigates to the correct
+  /// page based on the enum value, reducing boilerplate navigation code.
+  ///
+  /// It returns a `Future` that completes when the pushed route is popped.
+  Future<T?> pushRoute<T>(BuildContext context, StartAnalyzes startAnalyzes) {
+    // The target page widget is determined by the enum value.
+    Widget targetPage;
+
+    switch (startAnalyzes) {
+      case StartAnalyzes.offTheBlock:
+        targetPage = OffTheBlockAnalysisPage();
+      case StartAnalyzes.uwWork:
+        // TODO: Handle this case.
+        throw UnimplementedError();
+      case StartAnalyzes.breakout:
+        // TODO: Handle this case.
+        throw UnimplementedError();
+      case StartAnalyzes.complete:
+        // TODO: Handle this case.
+        throw UnimplementedError();
+    }
+
+    // A single, consistent navigation call.
+    return Navigator.of(context).push<T>(
+      MaterialPageRoute(
+        builder: (ctx) => targetPage,
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return GridView(
+        padding: const EdgeInsets.all(12.0), // Add padding around the grid
+        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: 2,
+          crossAxisSpacing: 12, // Add spacing between cards horizontally
+          mainAxisSpacing: 12, // Add spacing between cards vertically
+          childAspectRatio: 1, // Make cards square
+        ),
+        children: [
+          for (StartAnalyzes startAnalyzes in StartAnalyzes.values)
+            Card(
+              elevation: 4,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: InkWell(
+                borderRadius: BorderRadius.circular(16),
+                onTap: () {
+                  final implementedTypes = {StartAnalyzes.offTheBlock};
+
+                  if (implementedTypes.contains(startAnalyzes)) {
+                    // If the type is implemented, navigate to its page.
+                    pushRoute(context, startAnalyzes);
+                  } else {
+                    // If the type is not implemented, show a SnackBar.
+                    // Capitalize the first letter of the analysis type name for the message.
+                    final typeName = startAnalyzes.name[0].toUpperCase() +
+                        startAnalyzes.name.substring(1);
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content:
+                            Text('$typeName analysis is not implemented yet.'),
+                        duration: const Duration(seconds: 2),
+                        action: SnackBarAction(
+                          label: 'OK',
+                          onPressed: () {
+                            // Action to dismiss the SnackBar.
+                            ScaffoldMessenger.of(context).hideCurrentSnackBar();
+                          },
+                        ),
+                      ),
+                    );
+                  }
+                },
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      getIconForStartAnalysis(startAnalyzes),
+                      size: 64, // Increase icon size for better visibility
+                      color: theme.colorScheme.primary, // Use theme color
+                    ),
+                    const SizedBox(height: 16),
+                    Text(
+                      // Capitalize the first letter for a clean look
+                      startAnalyzes.name[0].toUpperCase() +
+                          startAnalyzes.name.substring(1),
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            )
+        ]);
+  }
 }
 
 class PickAnalysis extends StatelessWidget {
@@ -29,19 +137,16 @@ class PickAnalysis extends StatelessWidget {
 
     switch (a) {
       case AnalyzeType.race:
-      // Assuming your existing AnalysisPage is for races.
+        // Assuming your existing AnalysisPage is for races.
         targetPage = RaceAnalysisView();
         break;
       case AnalyzeType.start:
-      // TODO: Replace with your actual StartAnalysisPage widget.
-        targetPage = const StartAnalysisPage();
+        targetPage = const OffTheBlockAnalysisPage();
         break;
       case AnalyzeType.stroke:
-      // TODO: Replace with your actual StrokeAnalysisPage widget.
         targetPage = const StrokeAnalysisPage();
         break;
       case AnalyzeType.turn:
-      // TODO: Replace with your actual TurnAnalysisPage widget.
         targetPage = const TurnAnalysisPage();
         break;
     }
@@ -75,7 +180,10 @@ class PickAnalysis extends StatelessWidget {
               child: InkWell(
                 borderRadius: BorderRadius.circular(16),
                 onTap: () {
-                  final implementedTypes = {AnalyzeType.race, AnalyzeType.start};
+                  final implementedTypes = {
+                    AnalyzeType.race,
+                    AnalyzeType.start
+                  };
 
                   if (implementedTypes.contains(a)) {
                     // If the type is implemented, navigate to its page.
@@ -83,10 +191,12 @@ class PickAnalysis extends StatelessWidget {
                   } else {
                     // If the type is not implemented, show a SnackBar.
                     // Capitalize the first letter of the analysis type name for the message.
-                    final typeName = a.name[0].toUpperCase() + a.name.substring(1);
+                    final typeName =
+                        a.name[0].toUpperCase() + a.name.substring(1);
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(
-                        content: Text('$typeName analysis is not implemented yet.'),
+                        content:
+                            Text('$typeName analysis is not implemented yet.'),
                         duration: const Duration(seconds: 2),
                         action: SnackBarAction(
                           label: 'OK',
@@ -103,7 +213,7 @@ class PickAnalysis extends StatelessWidget {
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Icon(
-                      getIcon(a),
+                      getIconForAnalysis(a),
                       size: 64, // Increase icon size for better visibility
                       color: theme.colorScheme.primary, // Use theme color
                     ),
@@ -123,7 +233,7 @@ class PickAnalysis extends StatelessWidget {
   }
 }
 
-IconData getIcon(AnalyzeType a) {
+IconData getIconForAnalysis(AnalyzeType a) {
   switch (a) {
     case AnalyzeType.race:
       return Icons.flag_circle_outlined;
@@ -136,6 +246,18 @@ IconData getIcon(AnalyzeType a) {
   }
 }
 
+IconData getIconForStartAnalysis(StartAnalyzes startAnalysis) {
+  switch (startAnalysis) {
+    case StartAnalyzes.offTheBlock:
+      return Icons.flag_circle_outlined;
+    case StartAnalyzes.uwWork:
+      return Icons.start_outlined;
+    case StartAnalyzes.breakout:
+      return Icons.waves_outlined; // Icon representing swimming strokes.
+    case StartAnalyzes.complete:
+      return Icons.waves_outlined; // Icon representing swimming strokes.
+  }
+}
 
 class _HomePageState extends State<HomePage> {
   int _selectedIndex = 0;

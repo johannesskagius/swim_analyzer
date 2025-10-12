@@ -219,8 +219,8 @@ class _RaceAnalysisViewState extends State<RaceAnalysisView> {
         final intervalCount = _currentEvent!.checkPoints.length - 1;
         _intervalAttributes =
             List.generate(intervalCount, (_) => IntervalAttributes());
-        _checkpointKeys =
-            List.generate(_currentEvent!.checkPoints.length, (_) => GlobalKey());
+        _checkpointKeys = List.generate(
+            _currentEvent!.checkPoints.length, (_) => GlobalKey());
       } else {
         _intervalAttributes = [];
         _checkpointKeys = [];
@@ -237,7 +237,8 @@ class _RaceAnalysisViewState extends State<RaceAnalysisView> {
     HapticFeedback.mediumImpact();
 
     setState(() {
-      final segment = RaceSegment(checkPoint: nextCheckPoint, time: position);
+      final segment = RaceSegment(
+          checkPoint: nextCheckPoint, splitTimeOfTotalRace: position);
       _recordedSegments.add(segment);
 
       if (_currentCheckPointIndex < _currentEvent!.checkPoints.length - 1) {
@@ -246,7 +247,8 @@ class _RaceAnalysisViewState extends State<RaceAnalysisView> {
         if (_currentCheckPointIndex >= 4) {
           WidgetsBinding.instance.addPostFrameCallback((_) {
             if (_checkpointKeys.length > (_currentCheckPointIndex - 3)) {
-              final keyToScrollTo = _checkpointKeys[_currentCheckPointIndex - 3];
+              final keyToScrollTo =
+                  _checkpointKeys[_currentCheckPointIndex - 3];
               final context = keyToScrollTo.currentContext;
               if (context != null) {
                 Scrollable.ensureVisible(
@@ -339,19 +341,19 @@ class _RaceAnalysisViewState extends State<RaceAnalysisView> {
                     style: TextStyle(fontWeight: FontWeight.bold)),
                 TextSpan(
                     text:
-                    'Play the video and use the large central button to record the exact time for each checkpoint (e.g., Start, Breakout, Turn, Finish). Use the slow-motion and rewind buttons for precision.\n\n'),
+                        'Play the video and use the large central button to record the exact time for each checkpoint (e.g., Start, Breakout, Turn, Finish). Use the slow-motion and rewind buttons for precision.\n\n'),
                 TextSpan(
                     text: '2. ATTRIBUTES MODE\n',
                     style: TextStyle(fontWeight: FontWeight.bold)),
                 TextSpan(
                     text:
-                    'After all timing points are recorded, switch to this mode. The video will jump to each lap, allowing you to use the counters to record strokes, breaths, and underwater kicks for each interval.\n\n'),
+                        'After all timing points are recorded, switch to this mode. The video will jump to each lap, allowing you to use the counters to record strokes, breaths, and underwater kicks for each interval.\n\n'),
                 TextSpan(
                     text: 'VIEW RESULTS\n',
                     style: TextStyle(fontWeight: FontWeight.bold)),
                 TextSpan(
                     text:
-                    'Once you are done, tap the results icon in the top bar to see the complete analysis and save the race.'),
+                        'Once you are done, tap the results icon in the top bar to see the complete analysis and save the race.'),
               ],
             ),
           ),
@@ -407,8 +409,8 @@ class _RaceAnalysisViewState extends State<RaceAnalysisView> {
                 isDone
                     ? Icons.check_circle
                     : (isCurrent
-                    ? Icons.flag_circle_rounded
-                    : Icons.circle_outlined),
+                        ? Icons.flag_circle_rounded
+                        : Icons.circle_outlined),
                 color: isDone
                     ? Colors.green.shade400
                     : (isCurrent ? colorScheme.primary : Colors.white54),
@@ -471,67 +473,66 @@ class _RaceAnalysisViewState extends State<RaceAnalysisView> {
       ),
       body: _controller?.value.isInitialized ?? false
           ? Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Center(
-            child: AspectRatio(
-              aspectRatio: _controller!.value.aspectRatio,
-              child: VideoPlayer(_controller!),
-            ),
-          ),
-          Expanded(child: _buildControlsOverlay()),
-        ],
-      )
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Center(
+                  child: AspectRatio(
+                    aspectRatio: _controller!.value.aspectRatio,
+                    child: VideoPlayer(_controller!),
+                  ),
+                ),
+                Expanded(child: _buildControlsOverlay()),
+              ],
+            )
           : Center(
-        child: _isLoadingVideo
-            ? Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 50.0),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Text(
-                'Preparing Video... $_loadingDetails',
-                style: const TextStyle(fontSize: 16),
-              ),
-              const SizedBox(height: 16),
-              const LinearProgressIndicator(),
-            ],
-          ),
-        )
-            : Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(
-                Icons.video_library_outlined,
-                size: 80,
-                color:
-                Theme.of(context).textTheme.bodySmall?.color,
-              ),
-              const SizedBox(height: 16),
-              const Text(
-                'Start Your Analysis',
-                style: TextStyle(
-                    fontSize: 22, fontWeight: FontWeight.bold),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 8),
-              Text(
-                'Tap the "Load Video" button below to select a race video from your device.',
-                style: Theme.of(context).textTheme.bodyMedium,
-                textAlign: TextAlign.center,
-              ),
-            ],
-          ),
-        ),
-      ),
+              child: _isLoadingVideo
+                  ? Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 50.0),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Text(
+                            'Preparing Video... $_loadingDetails',
+                            style: const TextStyle(fontSize: 16),
+                          ),
+                          const SizedBox(height: 16),
+                          const LinearProgressIndicator(),
+                        ],
+                      ),
+                    )
+                  : Padding(
+                      padding: const EdgeInsets.all(16.0),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            Icons.video_library_outlined,
+                            size: 80,
+                            color: Theme.of(context).textTheme.bodySmall?.color,
+                          ),
+                          const SizedBox(height: 16),
+                          const Text(
+                            'Start Your Analysis',
+                            style: TextStyle(
+                                fontSize: 22, fontWeight: FontWeight.bold),
+                            textAlign: TextAlign.center,
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            'Tap the "Load Video" button below to select a race video from your device.',
+                            style: Theme.of(context).textTheme.bodyMedium,
+                            textAlign: TextAlign.center,
+                          ),
+                        ],
+                      ),
+                    ),
+            ),
       floatingActionButton: _controller == null
           ? FloatingActionButton.extended(
-        onPressed: _isLoadingVideo ? null : _pickVideo,
-        label: const Text('Load Video'),
-        icon: const Icon(Icons.video_library),
-      )
+              onPressed: _isLoadingVideo ? null : _pickVideo,
+              label: const Text('Load Video'),
+              icon: const Icon(Icons.video_library),
+            )
           : null,
     );
   }
@@ -580,7 +581,7 @@ class _RaceAnalysisViewState extends State<RaceAnalysisView> {
   Widget _buildTimingControls() {
     if (_currentEvent == null) return const SizedBox.shrink();
     final isFinished =
-    _recordedSegments.any((s) => s.checkPoint == CheckPoint.finish);
+        _recordedSegments.any((s) => s.checkPoint == CheckPoint.finish);
     final nextCheckPointName = isFinished
         ? 'Finished'
         : 'Record ${_getDistanceForCheckpoint(_currentEvent!.checkPoints[_currentCheckPointIndex], _currentCheckPointIndex)}';
@@ -666,7 +667,8 @@ class _RaceAnalysisViewState extends State<RaceAnalysisView> {
 
   void _seekToIntervalStart(int intervalIndex) {
     if (intervalIndex < _recordedSegments.length) {
-      _controller?.seekTo(_recordedSegments[intervalIndex].time);
+      _controller
+          ?.seekTo(_recordedSegments[intervalIndex].splitTimeOfTotalRace);
     }
   }
 
@@ -687,17 +689,17 @@ class _RaceAnalysisViewState extends State<RaceAnalysisView> {
     }
 
     final currentAttributes =
-    _intervalAttributes[_attributeEditingIntervalIndex];
+        _intervalAttributes[_attributeEditingIntervalIndex];
     final bool isBreaststroke = _currentEvent!.stroke == Stroke.breaststroke;
 
     final startCp = _currentEvent!.checkPoints[_attributeEditingIntervalIndex];
     final endCp =
-    _currentEvent!.checkPoints[_attributeEditingIntervalIndex + 1];
+        _currentEvent!.checkPoints[_attributeEditingIntervalIndex + 1];
 
     final startName =
-    _getDistanceForCheckpoint(startCp, _attributeEditingIntervalIndex);
+        _getDistanceForCheckpoint(startCp, _attributeEditingIntervalIndex);
     final endName =
-    _getDistanceForCheckpoint(endCp, _attributeEditingIntervalIndex + 1);
+        _getDistanceForCheckpoint(endCp, _attributeEditingIntervalIndex + 1);
 
     final bool isUnderwater =
         (startCp == CheckPoint.offTheBlock || startCp == CheckPoint.turn) &&
@@ -726,9 +728,9 @@ class _RaceAnalysisViewState extends State<RaceAnalysisView> {
             IconButton(
               icon: const Icon(Icons.chevron_right),
               onPressed:
-              _attributeEditingIntervalIndex < _recordedSegments.length - 2
-                  ? () => _changeAttributeInterval(1)
-                  : null,
+                  _attributeEditingIntervalIndex < _recordedSegments.length - 2
+                      ? () => _changeAttributeInterval(1)
+                      : null,
               color: Colors.white,
             ),
           ],

@@ -5,12 +5,12 @@ import 'package:provider/provider.dart';
 import 'package:swim_analyzer/analysis/race_data_analyzer.dart';
 import 'package:swim_apps_shared/swim_apps_shared.dart';
 
-class ResultsPage extends StatefulWidget {
+class RaceResultsView extends StatefulWidget {
   final List<RaceSegment> recordedSegments;
   final List<IntervalAttributes> intervalAttributes;
   final Event event;
 
-  const ResultsPage({
+  const RaceResultsView({
     super.key,
     required this.recordedSegments,
     required this.intervalAttributes,
@@ -18,10 +18,10 @@ class ResultsPage extends StatefulWidget {
   });
 
   @override
-  State<ResultsPage> createState() => _ResultsPageState();
+  State<RaceResultsView> createState() => _RaceResultsViewState();
 }
 
-class _ResultsPageState extends State<ResultsPage> {
+class _RaceResultsViewState extends State<RaceResultsView> {
   late RaceDataAnalyzer raceDataAnalyzer;
   final _formKey = GlobalKey<FormState>();
   final _raceNameController = TextEditingController();

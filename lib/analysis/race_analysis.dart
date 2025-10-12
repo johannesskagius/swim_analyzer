@@ -314,7 +314,7 @@ class _RaceAnalysisViewState extends State<RaceAnalysisView> {
 
     Navigator.of(context).push(
       MaterialPageRoute(
-        builder: (context) => ResultsPage(
+        builder: (context) => RaceResultsView(
           recordedSegments: _recordedSegments,
           intervalAttributes: _intervalAttributes,
           event: _currentEvent!,

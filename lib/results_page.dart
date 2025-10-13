@@ -288,7 +288,7 @@ class _RaceResultsViewState extends State<RaceResultsView> {
                           children: [
                             Expanded(
                               child: DropdownButtonFormField<String>(
-                                value: dialogSwimmerId,
+                                initialValue: dialogSwimmerId,
                                 decoration: const InputDecoration(
                                     labelText: 'Swimmer'),
                                 items: _swimmers.map((user) {
@@ -333,7 +333,7 @@ class _RaceResultsViewState extends State<RaceResultsView> {
                         ),
                         const SizedBox(height: 16),
                         DropdownButtonFormField<String>(
-                          value: dialogCoachId,
+                          initialValue: dialogCoachId,
                           decoration:
                           const InputDecoration(labelText: 'Coach'),
                           items: _coaches.map((user) {

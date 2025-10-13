@@ -44,8 +44,8 @@ class _RaceAnalysisViewState extends State<RaceAnalysisView> {
 
   //Audio wave form
   // Add these for the audio waveform display
-  List<double>? _audioWaveform;
-  bool _isProcessingWaveform = false;
+  //List<double>? _audioWaveform;
+  //bool _isProcessingWaveform = false;
   bool userPressedPlay = false;
 
   void _videoListener() {
@@ -1159,7 +1159,7 @@ class _WaveformPainter extends CustomPainter {
     required this.waveformData,
     required this.totalWidth,
   }) : wavePaint = Paint()
-          ..color = Colors.lightBlueAccent.withOpacity(0.9)
+          ..color = Colors.lightBlueAccent.withAlpha(90)
           ..style = PaintingStyle.stroke
           ..strokeWidth = 1.0;
 

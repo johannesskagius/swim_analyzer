@@ -1,0 +1,4 @@
+enum AnalysisType {
+  full,
+  quick,
+}

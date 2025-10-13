@@ -96,9 +96,55 @@ class RaceDataAnalyzer {
     return strokeCount / (splitTime / 1000 / 60);
   }
 
-  String getStrokeFrequency(int index) {
-    final freq = getStrokeFrequencyAsDouble(index);
-    return freq?.toStringAsFixed(1) ?? '-';
+  double? getStrokeFrequency(int index, {required bool asStrokesPerMinute}) {
+    double? freq = getStrokeFrequencyAsDouble(index);
+    if(freq != null && asStrokesPerMinute){
+      freq *= 60;
+    }
+    return freq;
+  }
+
+  double? getAverageSpeed(int segmentIndex) {
+    final speed = getAverageSpeedAsDouble(segmentIndex);
+    if (speed != null) {
+      return speed;
+    }
+    return null; // Return null if speed cannot be calculated
+  }
+  /// Calculates the average speed (m/s) for a given race segment index.
+  double? getAverageSpeedAsDouble(int segmentIndex) {
+    if (segmentIndex <= 0 || segmentIndex >= recordedSegments.length) {
+      return null; // Cannot calculate for the first segment or out of bounds.
+    }
+
+    final currentSegment = recordedSegments[segmentIndex];
+    final previousSegment = recordedSegments[segmentIndex - 1];
+
+    // Calculate the time duration of this specific segment.
+    final Duration segmentDuration =
+        currentSegment.splitTimeOfTotalRace - previousSegment.splitTimeOfTotalRace;
+
+    // Avoid division by zero if timestamps are identical.
+    if (segmentDuration.inMilliseconds <= 0) {
+      return null;
+    }
+
+    // Determine the distance of the segment.
+    final double segmentDistance =
+        getDistanceAsDouble(currentSegment, segmentIndex) -
+            getDistanceAsDouble(previousSegment, segmentIndex - 1);
+
+    // If the distance is zero (e.g., between 'start' and 'off the block'),
+    // speed is not meaningful.
+    if (segmentDistance <= 0) {
+      return null;
+    }
+
+    // Calculate speed: Speed = Distance / Time
+    final double speed =
+        segmentDistance / (segmentDuration.inMilliseconds / 1000.0);
+
+    return speed;
   }
 
   double? getBreakoutDistanceForLap(int segmentIndex) {

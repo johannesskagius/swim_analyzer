@@ -1,8 +1,12 @@
 import 'dart:io';
+import 'dart:typed_data';
 
+import 'package:ffmpeg_kit_flutter_new/ffmpeg_kit.dart';
+import 'package:ffmpeg_kit_flutter_new/return_code.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:swim_analyzer/results_page.dart';
 import 'package:swim_apps_shared/swim_apps_shared.dart';
@@ -37,9 +41,178 @@ class _RaceAnalysisViewState extends State<RaceAnalysisView> {
   // --- UX Improvement: Keys for scrolling the checkpoint guide ---
   List<GlobalKey> _checkpointKeys = [];
 
+  //precision scroller
+  late final ScrollController _scrubberScrollController;
+  bool _isScrubbing = false;
+  static const double _pixelsPerSecond = 200.0; // Adjust for zoom level
+
+  //Audio wave form
+  // Add these for the audio waveform display
+  List<double>? _audioWaveform;
+  bool _isProcessingWaveform = false;
+  bool userPressedPlay = false;
+
+  void _videoListener() {
+    // This line correctly prevents the listener from running during a user scrub.
+    if (_isScrubbing || !_scrubberScrollController.hasClients) return;
+
+    final videoPosition = _controller!.value.position;
+    final scrollPosition =
+        videoPosition.inMilliseconds / 1000.0 * _pixelsPerSecond;
+
+    _scrubberScrollController.jumpTo(scrollPosition);
+  }
+
+  String _formatScrubberDuration(Duration d) {
+    return '${d.inMinutes.toString().padLeft(2, '0')}:${(d.inSeconds % 60).toString().padLeft(2, '0')}';
+  }
+
+  /// --- Audio Waveform Generation (Full Implementation) ---
+  /// Extracts audio from the video file using FFmpeg, then processes the
+  /// raw audio into a normalized waveform List<double>.
+  Future<void> _processAudioWaveform(String videoPath) async {
+    setState(() => _isProcessingWaveform = true);
+
+    final Directory tempDir = await getTemporaryDirectory();
+    final String rawAudioPath = '${tempDir.path}/raw_audio.pcm';
+    final File rawAudioFile = File(rawAudioPath);
+
+    // Delete a previous temp file if it exists to avoid conflicts.
+    if (await rawAudioFile.exists()) {
+      await rawAudioFile.delete();
+    }
+
+    // This FFmpeg command extracts the audio into a raw format.
+    final String command =
+        '-i "$videoPath" -f s16le -ac 1 -ar 44100 "$rawAudioPath"';
+
+    final session = await FFmpegKit.execute(command);
+    final returnCode = await session.getReturnCode();
+
+    // BUG FIX: Corrected to use the class name from the new package.
+    if (!ReturnCode.isSuccess(returnCode)) {
+      print("FFmpeg failed to extract audio. Return code: $returnCode");
+      final logs = await session.getLogsAsString();
+      print("FFmpeg logs: $logs");
+      if (mounted) setState(() => _isProcessingWaveform = false);
+      return;
+    }
+
+    // Read the raw audio bytes from the temporary file.
+    if (!await rawAudioFile.exists()) {
+      print("Error: Raw audio file was not created by FFmpeg.");
+      if (mounted) setState(() => _isProcessingWaveform = false);
+      return;
+    }
+    final bytes = await rawAudioFile.readAsBytes();
+    await rawAudioFile.delete(); // Clean up the temp file immediately.
+
+    if (!mounted || bytes.isEmpty) {
+      if (mounted) setState(() => _isProcessingWaveform = false);
+      return;
+    }
+
+    // Process the raw bytes. Each sample is 2 bytes (16-bit).
+    final ByteData byteData = bytes.buffer.asByteData();
+    final List<double> waveform = [];
+    const double maxAmplitude = 32767.0;
+
+    for (int i = 0; i < byteData.lengthInBytes; i += 2) {
+      final int sample = byteData.getInt16(i, Endian.little);
+      waveform.add(sample / maxAmplitude);
+    }
+
+    setState(() {
+      _audioWaveform = waveform;
+      _isProcessingWaveform = false;
+    });
+  }
+
+// The main widget for the precision scrubber
+  Widget _buildPrecisionScrubber() {
+    if (_controller == null || !_controller!.value.isInitialized) {
+      return Container();
+    }
+    final totalDuration = _controller!.value.duration;
+    final timelineWidth =
+        (totalDuration.inMilliseconds / 1000.0) * _pixelsPerSecond;
+
+    // PERFORMANCE FIX: This is the most critical change for smooth playback.
+    // The logic is now much stricter to differentiate user drags from programmatic scrolls.
+    return NotificationListener<ScrollNotification>(
+      onNotification: (scrollNotification) {
+        // 1. A user DRAG starts. Pause the video and set the scrubbing flag.
+        if (scrollNotification is ScrollStartNotification &&
+            scrollNotification.dragDetails != null) {
+          setState(() {
+            _isScrubbing = true;
+            _controller?.pause();
+          });
+        }
+        // 2. The user is DRAGGING. Seek the video only if we are in a scrubbing state.
+        else if (scrollNotification is ScrollUpdateNotification && _isScrubbing) {
+          final newPosition = Duration(
+              milliseconds:
+              (scrollNotification.metrics.pixels / _pixelsPerSecond * 1000)
+                  .round());
+          _controller?.seekTo(newPosition);
+        }
+        // 3. The user STOPS dragging. Unset the scrubbing flag.
+        else if (scrollNotification is ScrollEndNotification && _isScrubbing) {
+          setState(() {
+            _isScrubbing = false;
+          });
+        }
+        return true;
+      },
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          SizedBox(
+            height: 60,
+            child: SingleChildScrollView(
+              controller: _scrubberScrollController,
+              scrollDirection: Axis.horizontal,
+              child: Stack(
+                alignment: Alignment.center,
+                children: [
+                  _buildAudioWaveform(),
+                  CustomPaint(
+                    painter: _TimelinePainter(
+                      totalDuration: totalDuration,
+                      pixelsPerSecond: _pixelsPerSecond,
+                      formatDuration: _formatScrubberDuration,
+                    ),
+                    size: Size(timelineWidth, 50),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          Container(
+            width: 2,
+            height: 60,
+            color: Colors.red,
+          ),
+        ],
+      ),
+    );
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _scrubberScrollController = ScrollController();
+    // PERFORMANCE OPTIMIZATION: Do not add listener here.
+    // It is added in _initializeVideoPlayer to avoid duplication.
+    // _controller?.addListener(_videoListener);
+  }
+
   @override
   void dispose() {
+    _controller?.removeListener(_videoListener);
     _controller?.dispose();
+    _scrubberScrollController.dispose();
     super.dispose();
   }
 
@@ -164,6 +337,8 @@ class _RaceAnalysisViewState extends State<RaceAnalysisView> {
   }
 
   Future<void> _initializeVideoPlayer(XFile file, Event event) async {
+    // Clean up old controller first
+    _controller?.removeListener(_videoListener);
     _controller?.dispose();
 
     final fileSizeInBytes = await file.length();
@@ -175,6 +350,8 @@ class _RaceAnalysisViewState extends State<RaceAnalysisView> {
     }
 
     final newController = VideoPlayerController.file(File(file.path));
+    // Add the listener ONCE to the new controller
+    newController.addListener(_videoListener);
     _controller = newController;
 
     try {
@@ -183,7 +360,7 @@ class _RaceAnalysisViewState extends State<RaceAnalysisView> {
         newController.dispose();
         return;
       }
-
+      _processAudioWaveform(file.path);
       setState(() {
         _currentEvent = event;
         _isLoadingVideo = false;
@@ -320,6 +497,44 @@ class _RaceAnalysisViewState extends State<RaceAnalysisView> {
           event: _currentEvent!,
         ),
       ),
+    );
+  }
+
+  Widget _buildAudioWaveform() {
+    if (_isProcessingWaveform) {
+      return const Padding(
+        padding: EdgeInsets.symmetric(vertical: 20.0),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            SizedBox(
+                width: 16,
+                height: 16,
+                child: CircularProgressIndicator(strokeWidth: 2)),
+            SizedBox(width: 12),
+            Text('Analyzing Audio...', style: TextStyle(color: Colors.white70)),
+          ],
+        ),
+      );
+    }
+
+    if (_audioWaveform == null ||
+        _audioWaveform!.isEmpty ||
+        _controller == null ||
+        !_controller!.value.isInitialized) {
+      return const SizedBox.shrink();
+    }
+
+    final totalDuration = _controller!.value.duration;
+    final waveformWidth =
+        (totalDuration.inMilliseconds / 1000.0) * _pixelsPerSecond;
+
+    return CustomPaint(
+      painter: _WaveformPainter(
+        waveformData: _audioWaveform!,
+        totalWidth: waveformWidth,
+      ),
+      size: Size(waveformWidth, 60), // Set the height of the waveform
     );
   }
 
@@ -540,9 +755,10 @@ class _RaceAnalysisViewState extends State<RaceAnalysisView> {
   Widget _buildControlsOverlay() {
     return Column(
       children: [
-        if (_controller != null)
-          VideoProgressIndicator(_controller!, allowScrubbing: true),
         const Spacer(),
+        if (_controller != null) ...[
+          _buildPrecisionScrubber(),
+        ],
         Container(
           color: Colors.black.withAlpha(40),
           padding: const EdgeInsets.symmetric(vertical: 12.0),
@@ -817,51 +1033,185 @@ class _RaceAnalysisViewState extends State<RaceAnalysisView> {
   Widget _buildTransportControls() {
     if (_controller == null) return const SizedBox.shrink();
 
+    // PERFORMANCE OPTIMIZATION: Use the `child` parameter of the ValueListenableBuilder.
+    // This pre-builds the static parts of the widget tree (the Row and its children),
+    // preventing them from being rebuilt every time the video position changes.
     return ValueListenableBuilder(
       valueListenable: _controller!,
-      builder: (context, VideoPlayerValue value, child) {
+      builder: (context, VideoPlayerValue value, Widget? child) {
         return Padding(
           padding: const EdgeInsets.symmetric(horizontal: 20.0),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
-            children: [
-              IconButton(
-                icon: const Icon(Icons.fast_rewind),
-                onPressed: () {
-                  final newPosition =
-                      value.position - const Duration(seconds: 2);
-                  _controller?.seekTo(
-                      newPosition.isNegative ? Duration.zero : newPosition);
-                },
-                color: Colors.white,
-                iconSize: 32,
-              ),
-              IconButton(
+          // The pre-built child is used here.
+          child: child,
+        );
+      },
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceAround,
+        children: [
+          IconButton(
+            icon: const Icon(Icons.fast_rewind),
+            onPressed: () {
+              final currentPosition = _controller!.value.position;
+              final newPosition = currentPosition - const Duration(seconds: 2);
+              _controller?.seekTo(
+                  newPosition.isNegative ? Duration.zero : newPosition);
+            },
+            color: Colors.white,
+            iconSize: 32,
+          ),
+          // The play/pause button is the only part that *truly* needs to rebuild
+          // based on the `value`, but for simplicity and given its small cost,
+          // rebuilding the whole row is acceptable. The main optimization is avoiding
+          // rebuilding the widgets within the builder. A more granular approach
+          // would be to have another builder just for the play/pause icon.
+          // For now, this is a significant improvement.
+          ValueListenableBuilder<VideoPlayerValue>(
+            valueListenable: _controller!,
+            builder: (context, value, child) {
+              return IconButton(
                 icon: Icon(value.isPlaying ? Icons.pause : Icons.play_arrow),
                 onPressed: () {
                   if (value.isPlaying) {
+                    userPressedPlay = false;
                     _controller!.pause();
                   } else {
+                    userPressedPlay = true;
                     _controller!.play();
                   }
+                  debugPrint('UserPressedPlay: ${userPressedPlay.toString()}');
                 },
                 color: Colors.white,
                 iconSize: 48,
-              ),
-              IconButton(
-                icon: const Icon(Icons.fast_forward),
-                onPressed: () {
-                  final newPosition =
-                      value.position + const Duration(seconds: 2);
-                  _controller?.seekTo(newPosition);
-                },
-                color: Colors.white,
-                iconSize: 32,
-              ),
-            ],
+              );
+            },
           ),
-        );
-      },
+          IconButton(
+            icon: const Icon(Icons.fast_forward),
+            onPressed: () {
+              final currentPosition = _controller!.value.position;
+              final newPosition = currentPosition + const Duration(seconds: 2);
+              _controller?.seekTo(newPosition);
+            },
+            color: Colors.white,
+            iconSize: 32,
+          ),
+        ],
+      ),
     );
+  }
+}
+
+class _TimelinePainter extends CustomPainter {
+  final Duration totalDuration;
+  final double pixelsPerSecond;
+  final String Function(Duration) formatDuration;
+
+  _TimelinePainter({
+    required this.totalDuration,
+    required this.pixelsPerSecond,
+    required this.formatDuration,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final tickPaint = Paint()
+      ..color = Colors.grey.shade400
+      ..strokeWidth = 1;
+    final textPainter = TextPainter(
+      textAlign: TextAlign.center,
+      textDirection: TextDirection.ltr,
+    );
+
+    // PERFORMANCE OPTIMIZATION: Calculate total ticks once.
+    // Use `size.width` to avoid drawing ticks that are off-screen.
+    final maxVisibleSeconds = size.width / pixelsPerSecond;
+    final totalTicks = (maxVisibleSeconds * 10).ceil();
+
+    for (int i = 0; i <= totalTicks; i++) {
+      final xPos = (i / 10.0) * pixelsPerSecond;
+      if (i % 10 == 0) {
+        // Every full second
+        canvas.drawLine(Offset(xPos, 10), Offset(xPos, size.height), tickPaint);
+        textPainter.text = TextSpan(
+          text: formatDuration(Duration(seconds: i ~/ 10)),
+          style: const TextStyle(color: Colors.white, fontSize: 12),
+        );
+        textPainter.layout();
+        textPainter.paint(canvas, Offset(xPos - (textPainter.width / 2), -5));
+      } else {
+        // Every 100 milliseconds
+        canvas.drawLine(Offset(xPos, 25), Offset(xPos, size.height), tickPaint);
+      }
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _TimelinePainter oldDelegate) {
+    return oldDelegate.totalDuration != totalDuration ||
+        oldDelegate.pixelsPerSecond != pixelsPerSecond;
+  }
+}
+
+/// --- Custom Painter for the Audio Waveform ---
+class _WaveformPainter extends CustomPainter {
+  final List<double> waveformData;
+  final double totalWidth;
+  final Paint wavePaint;
+
+  _WaveformPainter({
+    required this.waveformData,
+    required this.totalWidth,
+  }) : wavePaint = Paint()
+          ..color = Colors.lightBlueAccent.withOpacity(0.9)
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 1.0;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (waveformData.isEmpty || totalWidth <= 0) return;
+
+    final middleY = size.height / 2;
+    final samplesPerPixel = waveformData.length / totalWidth;
+    final int width = size.width.toInt();
+
+    // PERFORMANCE OPTIMIZATION: Pre-calculate min/max values for each pixel column.
+    // This avoids creating sublists and iterating multiple times over the same data.
+    final List<double> minValues = List.filled(width, 1.0);
+    final List<double> maxValues = List.filled(width, -1.0);
+
+    for (int i = 0; i < waveformData.length; i++) {
+      final pixelIndex = (i / samplesPerPixel).floor();
+      if (pixelIndex >= width) break;
+
+      final sample = waveformData[i];
+      if (sample < minValues[pixelIndex]) {
+        minValues[pixelIndex] = sample;
+      }
+      if (sample > maxValues[pixelIndex]) {
+        maxValues[pixelIndex] = sample;
+      }
+    }
+
+    // Now, draw the lines based on the pre-calculated min/max values.
+    for (int i = 0; i < width; i++) {
+      final maxVal = maxValues[i];
+      final minVal = minValues[i];
+
+      if (minVal <= maxVal) {
+        // Ensure there's a valid range to draw.
+        final yMax = middleY - (maxVal * middleY);
+        final yMin = middleY - (minVal * middleY);
+        canvas.drawLine(
+            Offset(i.toDouble(), yMin), Offset(i.toDouble(), yMax), wavePaint);
+      }
+    }
+  }
+
+  @override
+  bool shouldRepaint(_WaveformPainter oldDelegate) {
+    // PERFORMANCE OPTIMIZATION: Only repaint if the waveform data or width changes.
+    // Using identity check for waveformData is fast and effective if the list is replaced, not mutated.
+    return oldDelegate.waveformData != waveformData ||
+        oldDelegate.totalWidth != totalWidth;
   }
 }

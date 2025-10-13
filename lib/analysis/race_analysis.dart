@@ -1,12 +1,8 @@
 import 'dart:io';
-import 'dart:typed_data';
 
-import 'package:ffmpeg_kit_flutter_new/ffmpeg_kit.dart';
-import 'package:ffmpeg_kit_flutter_new/return_code.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:path_provider/path_provider.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:swim_analyzer/results_page.dart';
 import 'package:swim_apps_shared/swim_apps_shared.dart';
@@ -70,63 +66,63 @@ class _RaceAnalysisViewState extends State<RaceAnalysisView> {
   /// --- Audio Waveform Generation (Full Implementation) ---
   /// Extracts audio from the video file using FFmpeg, then processes the
   /// raw audio into a normalized waveform List<double>.
-  Future<void> _processAudioWaveform(String videoPath) async {
-    setState(() => _isProcessingWaveform = true);
-
-    final Directory tempDir = await getTemporaryDirectory();
-    final String rawAudioPath = '${tempDir.path}/raw_audio.pcm';
-    final File rawAudioFile = File(rawAudioPath);
-
-    // Delete a previous temp file if it exists to avoid conflicts.
-    if (await rawAudioFile.exists()) {
-      await rawAudioFile.delete();
-    }
-
-    // This FFmpeg command extracts the audio into a raw format.
-    final String command =
-        '-i "$videoPath" -f s16le -ac 1 -ar 44100 "$rawAudioPath"';
-
-    final session = await FFmpegKit.execute(command);
-    final returnCode = await session.getReturnCode();
-
-    // BUG FIX: Corrected to use the class name from the new package.
-    if (!ReturnCode.isSuccess(returnCode)) {
-      print("FFmpeg failed to extract audio. Return code: $returnCode");
-      final logs = await session.getLogsAsString();
-      print("FFmpeg logs: $logs");
-      if (mounted) setState(() => _isProcessingWaveform = false);
-      return;
-    }
-
-    // Read the raw audio bytes from the temporary file.
-    if (!await rawAudioFile.exists()) {
-      print("Error: Raw audio file was not created by FFmpeg.");
-      if (mounted) setState(() => _isProcessingWaveform = false);
-      return;
-    }
-    final bytes = await rawAudioFile.readAsBytes();
-    await rawAudioFile.delete(); // Clean up the temp file immediately.
-
-    if (!mounted || bytes.isEmpty) {
-      if (mounted) setState(() => _isProcessingWaveform = false);
-      return;
-    }
-
-    // Process the raw bytes. Each sample is 2 bytes (16-bit).
-    final ByteData byteData = bytes.buffer.asByteData();
-    final List<double> waveform = [];
-    const double maxAmplitude = 32767.0;
-
-    for (int i = 0; i < byteData.lengthInBytes; i += 2) {
-      final int sample = byteData.getInt16(i, Endian.little);
-      waveform.add(sample / maxAmplitude);
-    }
-
-    setState(() {
-      _audioWaveform = waveform;
-      _isProcessingWaveform = false;
-    });
-  }
+  // Future<void> _processAudioWaveform(String videoPath) async {
+  //   setState(() => _isProcessingWaveform = true);
+  //
+  //   final Directory tempDir = await getTemporaryDirectory();
+  //   final String rawAudioPath = '${tempDir.path}/raw_audio.pcm';
+  //   final File rawAudioFile = File(rawAudioPath);
+  //
+  //   // Delete a previous temp file if it exists to avoid conflicts.
+  //   if (await rawAudioFile.exists()) {
+  //     await rawAudioFile.delete();
+  //   }
+  //
+  //   // This FFmpeg command extracts the audio into a raw format.
+  //   final String command =
+  //       '-i "$videoPath" -f s16le -ac 1 -ar 44100 "$rawAudioPath"';
+  //
+  //   final session = await FFmpegKit.execute(command);
+  //   final returnCode = await session.getReturnCode();
+  //
+  //   // BUG FIX: Corrected to use the class name from the new package.
+  //   if (!ReturnCode.isSuccess(returnCode)) {
+  //     print("FFmpeg failed to extract audio. Return code: $returnCode");
+  //     final logs = await session.getLogsAsString();
+  //     print("FFmpeg logs: $logs");
+  //     if (mounted) setState(() => _isProcessingWaveform = false);
+  //     return;
+  //   }
+  //
+  //   // Read the raw audio bytes from the temporary file.
+  //   if (!await rawAudioFile.exists()) {
+  //     print("Error: Raw audio file was not created by FFmpeg.");
+  //     if (mounted) setState(() => _isProcessingWaveform = false);
+  //     return;
+  //   }
+  //   final bytes = await rawAudioFile.readAsBytes();
+  //   await rawAudioFile.delete(); // Clean up the temp file immediately.
+  //
+  //   if (!mounted || bytes.isEmpty) {
+  //     if (mounted) setState(() => _isProcessingWaveform = false);
+  //     return;
+  //   }
+  //
+  //   // Process the raw bytes. Each sample is 2 bytes (16-bit).
+  //   final ByteData byteData = bytes.buffer.asByteData();
+  //   final List<double> waveform = [];
+  //   const double maxAmplitude = 32767.0;
+  //
+  //   for (int i = 0; i < byteData.lengthInBytes; i += 2) {
+  //     final int sample = byteData.getInt16(i, Endian.little);
+  //     waveform.add(sample / maxAmplitude);
+  //   }
+  //
+  //   setState(() {
+  //     _audioWaveform = waveform;
+  //     _isProcessingWaveform = false;
+  //   });
+  // }
 
 // The main widget for the precision scrubber
   Widget _buildPrecisionScrubber() {
@@ -150,11 +146,12 @@ class _RaceAnalysisViewState extends State<RaceAnalysisView> {
           });
         }
         // 2. The user is DRAGGING. Seek the video only if we are in a scrubbing state.
-        else if (scrollNotification is ScrollUpdateNotification && _isScrubbing) {
+        else if (scrollNotification is ScrollUpdateNotification &&
+            _isScrubbing) {
           final newPosition = Duration(
               milliseconds:
-              (scrollNotification.metrics.pixels / _pixelsPerSecond * 1000)
-                  .round());
+                  (scrollNotification.metrics.pixels / _pixelsPerSecond * 1000)
+                      .round());
           _controller?.seekTo(newPosition);
         }
         // 3. The user STOPS dragging. Unset the scrubbing flag.
@@ -176,7 +173,7 @@ class _RaceAnalysisViewState extends State<RaceAnalysisView> {
               child: Stack(
                 alignment: Alignment.center,
                 children: [
-                  _buildAudioWaveform(),
+                  //_buildAudioWaveform(),
                   CustomPaint(
                     painter: _TimelinePainter(
                       totalDuration: totalDuration,
@@ -360,7 +357,7 @@ class _RaceAnalysisViewState extends State<RaceAnalysisView> {
         newController.dispose();
         return;
       }
-      _processAudioWaveform(file.path);
+      //_processAudioWaveform(file.path);
       setState(() {
         _currentEvent = event;
         _isLoadingVideo = false;
@@ -500,43 +497,43 @@ class _RaceAnalysisViewState extends State<RaceAnalysisView> {
     );
   }
 
-  Widget _buildAudioWaveform() {
-    if (_isProcessingWaveform) {
-      return const Padding(
-        padding: EdgeInsets.symmetric(vertical: 20.0),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            SizedBox(
-                width: 16,
-                height: 16,
-                child: CircularProgressIndicator(strokeWidth: 2)),
-            SizedBox(width: 12),
-            Text('Analyzing Audio...', style: TextStyle(color: Colors.white70)),
-          ],
-        ),
-      );
-    }
-
-    if (_audioWaveform == null ||
-        _audioWaveform!.isEmpty ||
-        _controller == null ||
-        !_controller!.value.isInitialized) {
-      return const SizedBox.shrink();
-    }
-
-    final totalDuration = _controller!.value.duration;
-    final waveformWidth =
-        (totalDuration.inMilliseconds / 1000.0) * _pixelsPerSecond;
-
-    return CustomPaint(
-      painter: _WaveformPainter(
-        waveformData: _audioWaveform!,
-        totalWidth: waveformWidth,
-      ),
-      size: Size(waveformWidth, 60), // Set the height of the waveform
-    );
-  }
+  // Widget _buildAudioWaveform() {
+  //   if (_isProcessingWaveform) {
+  //     return const Padding(
+  //       padding: EdgeInsets.symmetric(vertical: 20.0),
+  //       child: Row(
+  //         mainAxisAlignment: MainAxisAlignment.center,
+  //         children: [
+  //           SizedBox(
+  //               width: 16,
+  //               height: 16,
+  //               child: CircularProgressIndicator(strokeWidth: 2)),
+  //           SizedBox(width: 12),
+  //           Text('Analyzing Audio...', style: TextStyle(color: Colors.white70)),
+  //         ],
+  //       ),
+  //     );
+  //   }
+  //
+  //   if (_audioWaveform == null ||
+  //       _audioWaveform!.isEmpty ||
+  //       _controller == null ||
+  //       !_controller!.value.isInitialized) {
+  //     return const SizedBox.shrink();
+  //   }
+  //
+  //   final totalDuration = _controller!.value.duration;
+  //   final waveformWidth =
+  //       (totalDuration.inMilliseconds / 1000.0) * _pixelsPerSecond;
+  //
+  //   return CustomPaint(
+  //     painter: _WaveformPainter(
+  //       waveformData: _audioWaveform!,
+  //       totalWidth: waveformWidth,
+  //     ),
+  //     size: Size(waveformWidth, 60), // Set the height of the waveform
+  //   );
+  // }
 
   void _showHelpDialog() {
     showDialog(

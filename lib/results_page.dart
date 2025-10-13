@@ -5,6 +5,8 @@ import 'package:provider/provider.dart';
 import 'package:swim_analyzer/analysis/race_data_analyzer.dart';
 import 'package:swim_apps_shared/swim_apps_shared.dart';
 
+import 'add_swimmer.dart';
+
 class RaceResultsView extends StatefulWidget {
   final List<RaceSegment> recordedSegments;
   final List<IntervalAttributes> intervalAttributes;
@@ -77,7 +79,7 @@ class _RaceResultsViewState extends State<RaceResultsView> {
         swimmers = [currentUser];
         selectedSwimmerId = currentUser.id;
         // Attempt to pre-select the swimmer's coach
-        final coach = await userRepo.getUserDocument(currentUser.coachCreatorId ?? '');
+        final coach = await userRepo.getUserDocument(currentUser.creatorId ?? '');
         if (coach != null) {
           coaches = [coach];
           selectedCoachId = coach.id;
@@ -221,7 +223,6 @@ class _RaceResultsViewState extends State<RaceResultsView> {
     );
   }
 
-  // REFACTOR: New method to show the save dialog.
   Future<void> _showSaveDialog() async {
     final bool isSwimmer = _currentUser is Swimmer;
     final bool isCoach = _currentUser is Coach;
@@ -230,104 +231,156 @@ class _RaceResultsViewState extends State<RaceResultsView> {
       context: context,
       barrierDismissible: false, // User must interact with the dialog.
       builder: (BuildContext dialogContext) {
-        return AlertDialog(
-          title: const Text('Save Race Analysis'),
-          content: SingleChildScrollView(
-            child: Form(
-              key: _saveFormKey,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  if (_isLoading)
-                    const Center(child: CircularProgressIndicator())
-                  else ...[
-                    TextFormField(
-                      controller: _raceNameController,
-                      decoration: const InputDecoration(labelText: 'Race Name'),
-                      validator: (value) =>
-                      value!.isEmpty ? 'Please enter a name' : null,
-                    ),
-                    const SizedBox(height: 16),
-                    TextFormField(
-                      controller: _raceDateController,
-                      decoration: const InputDecoration(
-                        labelText: 'Race Date',
-                        suffixIcon: Icon(Icons.calendar_today),
-                      ),
-                      readOnly: true,
-                      onTap: () async {
-                        final pickedDate = await showDatePicker(
-                          context: context,
-                          initialDate: DateTime.now(),
-                          firstDate: DateTime(2000),
-                          lastDate: DateTime(2101),
-                        );
-                        if (pickedDate != null) {
-                          _raceDateController.text =
-                              DateFormat('yyyy-MM-dd').format(pickedDate);
-                        }
-                      },
-                    ),
-                    const SizedBox(height: 16),
-                    DropdownButtonFormField<String>(
-                      value: _selectedSwimmerId,
-                      decoration: const InputDecoration(labelText: 'Swimmer'),
-                      items: _swimmers.map((user) {
-                        return DropdownMenuItem(
-                          value: user.id,
-                          child: Text(user.name),
-                        );
-                      }).toList(),
-                      onChanged: isSwimmer
-                          ? null
-                          : (value) => setState(() => _selectedSwimmerId = value),
-                      validator: (value) =>
-                      value == null ? 'Please select a swimmer' : null,
-                    ),
-                    const SizedBox(height: 16),
-                    // This Dropdown can be optional if a swimmer is saving
-                    DropdownButtonFormField<String>(
-                      value: _selectedCoachId,
-                      decoration: const InputDecoration(labelText: 'Coach'),
-                      items: _coaches.map((user) {
-                        return DropdownMenuItem(
-                          value: user.id,
-                          child: Text(user.name),
-                        );
-                      }).toList(),
-                      onChanged: (isSwimmer || isCoach)
-                          ? null
-                          : (value) => setState(() => _selectedCoachId = value),
-                      validator: (value) =>
-                      value == null && isCoach ? 'Please select a coach' : null,
-                    ),
-                  ],
-                ],
+        // Use local variables to manage state within the dialog
+        String? dialogSwimmerId = _selectedSwimmerId;
+        String? dialogCoachId = _selectedCoachId;
+
+        // Wrap with StatefulBuilder to manage the dialog's own state
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              title: const Text('Save Race Analysis'),
+              content: SingleChildScrollView(
+                child: Form(
+                  key: _saveFormKey,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (_isLoading)
+                        const Center(child: CircularProgressIndicator())
+                      else ...[
+                        TextFormField(
+                          controller: _raceNameController,
+                          decoration:
+                          const InputDecoration(labelText: 'Race Name'),
+                          validator: (value) =>
+                          value!.isEmpty ? 'Please enter a name' : null,
+                        ),
+                        const SizedBox(height: 16),
+                        TextFormField(
+                          controller: _raceDateController,
+                          decoration: const InputDecoration(
+                            labelText: 'Race Date',
+                            suffixIcon: Icon(Icons.calendar_today),
+                          ),
+                          readOnly: true,
+                          onTap: () async {
+                            final pickedDate = await showDatePicker(
+                              context: context,
+                              initialDate: DateTime.now(),
+                              firstDate: DateTime(2000),
+                              lastDate: DateTime(2101),
+                            );
+                            if (pickedDate != null) {
+                              // Use the dialog's setState to update the UI
+                              setDialogState(() {
+                                _raceDateController.text =
+                                    DateFormat('yyyy-MM-dd')
+                                        .format(pickedDate);
+                              });
+                            }
+                          },
+                        ),
+                        const SizedBox(height: 16),
+                        // --- "Add Swimmer" Feature ---
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.end,
+                          children: [
+                            Expanded(
+                              child: DropdownButtonFormField<String>(
+                                value: dialogSwimmerId,
+                                decoration: const InputDecoration(
+                                    labelText: 'Swimmer'),
+                                items: _swimmers.map((user) {
+                                  return DropdownMenuItem(
+                                    value: user.id,
+                                    child: Text(user.name),
+                                  );
+                                }).toList(),
+                                onChanged: isSwimmer
+                                    ? null
+                                    : (value) => setDialogState(
+                                        () => dialogSwimmerId = value),
+                                validator: (value) => value == null
+                                    ? 'Please select a swimmer'
+                                    : null,
+                              ),
+                            ),
+                            if (isCoach)
+                              Padding(
+                                padding:
+                                const EdgeInsets.only(left: 8.0, bottom: 4.0),
+                                child: IconButton(
+                                  icon: const Icon(Icons.add),
+                                  tooltip: 'Add New Swimmer',
+                                  onPressed: () async {
+                                    // You would navigate to your 'AddSwimmerPage' here
+                                    final newSwimmerAdded = await Navigator.of(context).push(MaterialPageRoute(builder: (_) => AddSwimmerPage(coach: _currentUser as Coach))); //Verified in isCoach
+
+                                    // For now, we'll just log it.
+                                    // After the page returns, you would refresh the data.
+                                    print("Navigate to Add Swimmer page...");
+
+                                    // Example of how you would refresh the list:
+                                    if (newSwimmerAdded == true) {
+                                      await _loadInitialData(); // Reload all user data
+                                      setDialogState((){}); // Rebuild the dialog with the new list
+                                    }
+                                  },
+                                ),
+                              ),
+                          ],
+                        ),
+                        const SizedBox(height: 16),
+                        DropdownButtonFormField<String>(
+                          value: dialogCoachId,
+                          decoration:
+                          const InputDecoration(labelText: 'Coach'),
+                          items: _coaches.map((user) {
+                            return DropdownMenuItem(
+                              value: user.id,
+                              child: Text(user.name),
+                            );
+                          }).toList(),
+                          onChanged: (isSwimmer || isCoach)
+                              ? null
+                              : (value) => setDialogState(
+                                  () => dialogCoachId = value),
+                          validator: (value) =>
+                          value == null ? 'Please select a coach' : null,
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
               ),
-            ),
-          ),
-          actions: <Widget>[
-            TextButton(
-              child: const Text('Cancel'),
-              onPressed: () {
-                Navigator.of(dialogContext).pop();
-              },
-            ),
-            ElevatedButton(
-              child: const Text('Save'),
-              onPressed: () {
-                if (_saveFormKey.currentState!.validate()) {
-                  // Pass the main build context to the save function
-                  _saveRaceToFirestore(context);
-                }
-              },
-            ),
-          ],
+              actions: <Widget>[
+                TextButton(
+                  child: const Text('Cancel'),
+                  onPressed: () {
+                    Navigator.of(dialogContext).pop();
+                  },
+                ),
+                ElevatedButton(
+                  child: const Text('Save'),
+                  onPressed: () {
+                    if (_saveFormKey.currentState!.validate()) {
+                      // Update the main page's state with the final selections
+                      setState(() {
+                        _selectedSwimmerId = dialogSwimmerId;
+                        _selectedCoachId = dialogCoachId;
+                      });
+                      _saveRaceToFirestore(context);
+                    }
+                  },
+                ),
+              ],
+            );
+          },
         );
       },
     );
   }
-
 
   @override
   Widget build(BuildContext context) {

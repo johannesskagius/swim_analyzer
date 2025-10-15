@@ -11,6 +11,7 @@ class AddSwimmerPage extends StatefulWidget {
   final Coach coach;
 
   const AddSwimmerPage({super.key, required this.coach});
+
   @override
   State<AddSwimmerPage> createState() => _AddSwimmerPageState();
 }
@@ -42,8 +43,10 @@ class _AddSwimmerPageState extends State<AddSwimmerPage> {
       String newSwimmerName = _nameController.text.trim();
       String newSwimmerEmail = _emailController.text.trim();
 
-
-      Swimmer newSwimmer = await userRepo.createSwimmer(name: newSwimmerName, coachCreatorId: widget.coach.id, clubId: widget.coach.clubId, email: newSwimmerEmail);
+      Swimmer newSwimmer = await userRepo.createSwimmer(
+          name: newSwimmerName,
+          clubId: widget.coach.clubId,
+          email: newSwimmerEmail);
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -118,13 +121,13 @@ class _AddSwimmerPageState extends State<AddSwimmerPage> {
                 ),
                 child: _isLoading
                     ? const SizedBox(
-                  height: 24,
-                  width: 24,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 3,
-                    color: Colors.white,
-                  ),
-                )
+                        height: 24,
+                        width: 24,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 3,
+                          color: Colors.white,
+                        ),
+                      )
                     : const Text('Add Swimmer'),
               ),
             ],

@@ -32,7 +32,6 @@ class _SettingsPageState extends State<SettingsPage> {
     final userRepo = Provider.of<UserRepository>(context, listen: false);
     final themeProvider = Provider.of<ThemeProvider>(context);
 
-    // --- FIX: Shared settings widgets for both signed-in and signed-out users ---
     final appearanceAndAboutWidgets = [
       const Divider(),
       const Padding(
@@ -78,7 +77,6 @@ class _SettingsPageState extends State<SettingsPage> {
             return const Center(child: CircularProgressIndicator());
           }
 
-          // --- FIX: Handle Signed-Out State ---
           // If there's no user data, show the sign-in button.
           if (snapshot.hasError || !snapshot.hasData || snapshot.data == null) {
             return ListView(
@@ -120,7 +118,7 @@ class _SettingsPageState extends State<SettingsPage> {
                 ),
                 title: Text(user.name,
                     style: const TextStyle(fontWeight: FontWeight.bold)),
-                subtitle: Text('${user.email ?? 'No email'} | $role'),
+                subtitle: Text('${user.email} | $role'),
               ),
               const Divider(),
               const Padding(

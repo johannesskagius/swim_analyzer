@@ -4,6 +4,7 @@ import 'dart:math';
 
 import 'package:crypto/crypto.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 
@@ -16,9 +17,8 @@ class SignInPage extends StatefulWidget {
 
 class _SignInPageState extends State<SignInPage> {
   final _formKey = GlobalKey<FormState>();
-  final _emailController =
-      TextEditingController(text: 'johannesskagius@gmail.com');
-  final _passwordController = TextEditingController(text: 'Test123456');
+  late final _emailController;
+  late final _passwordController;
 
   Future<void> _registerWithEmail() async {
     if (!_formKey.currentState!.validate()) {
@@ -103,6 +103,17 @@ class _SignInPageState extends State<SignInPage> {
         ),
       );
     }
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _emailController = kDebugMode
+        ? TextEditingController(text: 'johannesskagius@gmail.com')
+        : TextEditingController();
+    _passwordController = kDebugMode
+        ? TextEditingController(text: 'Test123456')
+        : TextEditingController();
   }
 
   @override

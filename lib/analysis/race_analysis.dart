@@ -125,6 +125,10 @@ class _RaceAnalysisViewState extends State<RaceAnalysisView> {
             mainAxisSize: MainAxisSize.min,
             children: <Widget>[
               ListTile(
+                title: Text('25m Race'),
+                onTap: () => Navigator.of(context).pop(TwentyFiveMeterRace),
+              ),
+              ListTile(
                 title: const Text('50m Race'),
                 onTap: () => Navigator.of(context).pop(FiftyMeterRace),
               ),
@@ -160,8 +164,9 @@ class _RaceAnalysisViewState extends State<RaceAnalysisView> {
     );
 
     if (selectedStroke == null) return null;
-
-    if (selectedRaceType == FiftyMeterRace) {
+    if (selectedRaceType == TwentyFiveMeterRace) {
+      return TwentyFiveMeterRace(stroke: selectedStroke);
+    } else if (selectedRaceType == FiftyMeterRace) {
       return FiftyMeterRace(stroke: selectedStroke);
     } else if (selectedRaceType == HundredMetersRace) {
       return HundredMetersRace(stroke: selectedStroke);
@@ -1254,7 +1259,6 @@ class _QuickAnalysisUIState extends _AnalysisUIBaseState<_QuickAnalysisUI> {
       ],
     );
   }
-
 
   Widget _buildAttributeCounter(
       {required String label,

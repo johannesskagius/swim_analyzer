@@ -57,7 +57,8 @@ class DefaultFirebaseOptions {
     appId: '1:418096768013:ios:060bfd0d390ee083d46144',
     messagingSenderId: '418096768013',
     projectId: 'swim-coach-support',
-    databaseURL: 'https://swim-coach-support-default-rtdb.europe-west1.firebasedatabase.app',
+    databaseURL:
+        'https://swim-coach-support-default-rtdb.europe-west1.firebasedatabase.app',
     storageBucket: 'swim-coach-support.firebasestorage.app',
     iosBundleId: 'com.example.swimAnalyzer',
   );

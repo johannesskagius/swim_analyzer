@@ -6,12 +6,14 @@ class OffTheBlockResultsPage extends StatelessWidget {
   final Map<OffTheBlockEvent, Duration> markedTimestamps;
   final String? startDistance;
   final String? startHeight;
+  final Map<String, double>? jumpData;
 
   const OffTheBlockResultsPage({
     super.key,
     required this.markedTimestamps,
     this.startDistance,
     this.startHeight,
+    required this.jumpData
   });
 
   @override
@@ -78,6 +80,30 @@ class OffTheBlockResultsPage extends StatelessWidget {
       resultsWidgets.add(ListTile(
         title: const Text('Start Height'),
         trailing: Text('$startHeight m'),
+      ));
+    }
+
+    if (jumpData != null) {
+      resultsWidgets.add(const Divider());
+      resultsWidgets.add(
+        const ListTile(
+          title: Text(
+            'Jump & Entry Physics',
+            style: TextStyle(fontWeight: FontWeight.bold),
+          ),
+        ),
+      );
+      resultsWidgets.add(ListTile(
+        title: const Text('Peak Jump Height (above block)'),
+        trailing: Text('${jumpData!['jumpHeight']!.toStringAsFixed(2)} m'),
+      ));
+      resultsWidgets.add(ListTile(
+        title: const Text('Entry Velocity (Horizontal)'),
+        trailing: Text('${jumpData!['entryVelocityX']!.toStringAsFixed(2)} m/s'),
+      ));
+      resultsWidgets.add(ListTile(
+        title: const Text('Entry Velocity (Vertical)'),
+        trailing: Text('${jumpData!['entryVelocityY']!.toStringAsFixed(2)} m/s'),
       ));
     }
 

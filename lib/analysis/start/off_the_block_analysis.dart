@@ -1,11 +1,12 @@
 import 'dart:io';
-import 'dart:math';
 
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:swim_analyzer/analysis/time_line_painter.dart';
-import 'package:vector_math/vector_math_64.dart' as vector;
 import 'package:video_player/video_player.dart';
+
+import 'measurement_painter.dart';
+import 'off_the_block_result.dart';
 
 // A dedicated enum for the specific events to be marked in this analysis.
 enum OffTheBlockEvent {
@@ -41,7 +42,8 @@ class OffTheBlockAnalysisPage extends StatefulWidget {
   const OffTheBlockAnalysisPage({super.key});
 
   @override
-  State<OffTheBlockAnalysisPage> createState() => _OffTheBlockAnalysisPageState();
+  State<OffTheBlockAnalysisPage> createState() =>
+      _OffTheBlockAnalysisPageState();
 }
 
 class _OffTheBlockAnalysisPageState extends State<OffTheBlockAnalysisPage> {
@@ -59,7 +61,8 @@ class _OffTheBlockAnalysisPageState extends State<OffTheBlockAnalysisPage> {
   static const double _pixelsPerSecond = 150.0;
 
   // Controller for the zoomable video viewer.
-  final TransformationController _transformationController = TransformationController();
+  final TransformationController _transformationController =
+      TransformationController();
 
   // State for the measurement feature
   bool _isMeasuring = false;
@@ -74,6 +77,69 @@ class _OffTheBlockAnalysisPageState extends State<OffTheBlockAnalysisPage> {
     _scrubberScrollController = ScrollController();
   }
 
+  // ### NEW METHOD: Calculates jump physics based on user input ###
+  Map<String, double>? _calculateJumpPhysics() {
+    // 1. --- GATHER AND VALIDATE INPUTS ---
+    final String startHeightText = _startHeightController.text;
+    final startDistanceText = _startDistanceController.text;
+    final leftBlockTime = _markedTimestamps[OffTheBlockEvent.leftBlock];
+    final touchedWaterTime = _markedTimestamps[OffTheBlockEvent.touchedWater];
+
+    // Ensure all required data is present
+    if (startHeightText.isEmpty ||
+        startDistanceText.isEmpty ||
+        leftBlockTime == null ||
+        touchedWaterTime == null) {
+      return null;
+    }
+
+    // Use tryParse for safe number conversion
+    final double? startHeight = double.tryParse(startHeightText)??0.75;
+    final double? horizontalDistance = double.tryParse(startDistanceText);
+
+    if (startHeight == null || horizontalDistance == null) {
+      return null;
+    }
+
+    // Calculate flight time in seconds
+    final flightTime =
+        (touchedWaterTime.inMilliseconds - leftBlockTime.inMilliseconds) / 1000.0;
+
+    // Flight time must be positive
+    if (flightTime <= 0) {
+      return null;
+    }
+
+    // 2. --- PERFORM PHYSICS CALCULATIONS ---
+    const double g = 9.81; // Gravity in m/s^2
+
+    // Vx = d / t (Horizontal velocity is constant)
+    final double velocityX = horizontalDistance / flightTime;
+
+    // From the equation: displacement_y = Vi*t + 0.5*a*t^2
+    // We solve for initial vertical velocity (Vi):
+    // -startHeight = (initialVerticalVelocity * flightTime) - (0.5 * g * flightTime^2)
+    final double initialVerticalVelocity =
+        (0.5 * g * flightTime * flightTime - startHeight) / flightTime;
+
+    // The peak height of the jump (above the block) occurs when vertical velocity is 0.
+    // From the equation: Vf^2 = Vi^2 + 2*a*d
+    // 0 = initialVerticalVelocity^2 - 2 * g * jumpHeight
+    final double jumpHeight =
+        (initialVerticalVelocity * initialVerticalVelocity) / (2 * g);
+
+    // Final vertical velocity at water entry.
+    // Vf = Vi + a*t
+    final double finalVerticalVelocity = initialVerticalVelocity - (g * flightTime);
+
+    // 3. --- RETURN RESULTS ---
+    return {
+      'jumpHeight': jumpHeight,
+      'entryVelocityX': velocityX,
+      'entryVelocityY': finalVerticalVelocity,
+    };
+  }
+
   @override
   void dispose() {
     _controller?.removeListener(_videoListener);
@@ -86,7 +152,9 @@ class _OffTheBlockAnalysisPageState extends State<OffTheBlockAnalysisPage> {
 
   void _videoListener() {
     if (mounted && !_isScrubbing && _controller != null) {
-      final newScrollOffset = _controller!.value.position.inMilliseconds / 1000.0 * _pixelsPerSecond;
+      final newScrollOffset = _controller!.value.position.inMilliseconds /
+          1000.0 *
+          _pixelsPerSecond;
       _scrubberScrollController.animateTo(
         newScrollOffset,
         duration: const Duration(milliseconds: 100),
@@ -103,7 +171,8 @@ class _OffTheBlockAnalysisPageState extends State<OffTheBlockAnalysisPage> {
     });
 
     try {
-      final XFile? pickedFile = await _picker.pickVideo(source: ImageSource.gallery);
+      final XFile? pickedFile =
+          await _picker.pickVideo(source: ImageSource.gallery);
 
       if (pickedFile == null) {
         setState(() => _isLoading = false);
@@ -129,7 +198,8 @@ class _OffTheBlockAnalysisPageState extends State<OffTheBlockAnalysisPage> {
     } catch (e) {
       debugPrint("Error during video picking/initialization: $e");
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed to load video: ${e.toString()}')));
+      ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to load video: ${e.toString()}')));
       setState(() {
         _isLoading = false;
         _controller = null;
@@ -157,15 +227,19 @@ class _OffTheBlockAnalysisPageState extends State<OffTheBlockAnalysisPage> {
   //   if (_controller!.value.isPlaying) {
   //     await _controller!.pause();
   //   }
-  // }
+  // }<<<
 
   void _calculateResults() {
+    // Call the new physics calculation method
+    final Map<String, double>? jumpData = _calculateJumpPhysics();
+
     Navigator.of(context).push(
       MaterialPageRoute(
         builder: (context) => OffTheBlockResultsPage(
           markedTimestamps: _markedTimestamps,
           startDistance: _startDistanceController.text,
           startHeight: _startHeightController.text,
+          jumpData: jumpData, // Pass the new data to the results page
         ),
       ),
     );
@@ -189,21 +263,27 @@ class _OffTheBlockAnalysisPageState extends State<OffTheBlockAnalysisPage> {
             Container(
               color: Colors.blue.withAlpha(10),
               width: double.infinity,
-              height: 110.0, // Fixed height to prevent layout shifts when content changes.
-              alignment: Alignment.center, // Center the co
+              height: 110.0,
+              // Fixed height to prevent layout shifts when content changes.
+              alignment: Alignment.center,
+              // Center the co
               padding: const EdgeInsets.all(12.0),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  _getMeasurementInstruction().isNotEmpty ? Text(
-                    _getMeasurementInstruction(),
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                  ):const SizedBox.shrink(),
+                  _getMeasurementInstruction().isNotEmpty
+                      ? Text(
+                          _getMeasurementInstruction(),
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                              fontWeight: FontWeight.bold, fontSize: 16),
+                        )
+                      : const SizedBox.shrink(),
                   if (_measurementPoints.length == 6) ...[
                     const SizedBox(height: 8),
                     ElevatedButton.icon(
-                      onPressed: () => _calculateMeasuredDistance(showSnackbar: true),
+                      onPressed: () =>
+                          _calculateMeasuredDistance(showSnackbar: true),
                       icon: const Icon(Icons.straighten),
                       label: const Text('Calculate Distance'),
                       style: ElevatedButton.styleFrom(
@@ -265,13 +345,18 @@ class _OffTheBlockAnalysisPageState extends State<OffTheBlockAnalysisPage> {
       child: GestureDetector(
         // --- GESTURE HANDLING FOR MEASUREMENT ---
         onTapUp: (details) {
-          if (!_isMeasuring || _isPointDragInProgress || _measurementPoints.length >= 6) return;
+          if (!_isMeasuring ||
+              _isPointDragInProgress ||
+              _measurementPoints.length >= 6) return;
 
-          final sceneOffset = _transformationController.toScene(details.localPosition);
+          final sceneOffset =
+              _transformationController.toScene(details.localPosition);
           // Don't add a point if tapping on an existing handle
           for (int i = 0; i < _measurementPoints.length; i++) {
-            final handleCenter = _measurementPoints[i] + const Offset(0, MeasurementPainter.handleYOffset);
-            if ((sceneOffset - handleCenter).distance < MeasurementPainter.handleTouchRadius) {
+            final handleCenter = _measurementPoints[i] +
+                const Offset(0, MeasurementPainter.handleYOffset);
+            if ((sceneOffset - handleCenter).distance <
+                MeasurementPainter.handleTouchRadius) {
               return;
             }
           }
@@ -282,12 +367,15 @@ class _OffTheBlockAnalysisPageState extends State<OffTheBlockAnalysisPage> {
         },
         onPanStart: (details) {
           if (!_isMeasuring) return;
-          final sceneOffset = _transformationController.toScene(details.localPosition);
+          final sceneOffset =
+              _transformationController.toScene(details.localPosition);
           int? hitIndex;
           // Check if the pan started on a handle (in reverse order for Z-index)
           for (int i = _measurementPoints.length - 1; i >= 0; i--) {
-            final handleCenter = _measurementPoints[i] + const Offset(0, MeasurementPainter.handleYOffset);
-            if ((sceneOffset - handleCenter).distance < MeasurementPainter.handleTouchRadius) {
+            final handleCenter = _measurementPoints[i] +
+                const Offset(0, MeasurementPainter.handleYOffset);
+            if ((sceneOffset - handleCenter).distance <
+                MeasurementPainter.handleTouchRadius) {
               hitIndex = i;
               break;
             }
@@ -301,9 +389,11 @@ class _OffTheBlockAnalysisPageState extends State<OffTheBlockAnalysisPage> {
         },
         onPanUpdate: (details) {
           if (!_isPointDragInProgress || _draggedPointIndex == null) return;
-          final sceneOffset = _transformationController.toScene(details.localPosition);
+          final sceneOffset =
+              _transformationController.toScene(details.localPosition);
           setState(() {
-            _measurementPoints[_draggedPointIndex!] = sceneOffset - const Offset(0, MeasurementPainter.handleYOffset);
+            _measurementPoints[_draggedPointIndex!] =
+                sceneOffset - const Offset(0, MeasurementPainter.handleYOffset);
           });
         },
         onPanEnd: (details) {
@@ -359,11 +449,16 @@ class _OffTheBlockAnalysisPageState extends State<OffTheBlockAnalysisPage> {
               children: [
                 _buildPrecisionScrubber(),
                 const Divider(height: 24),
-                Text('Mark Key Events', style: textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+                Text('Mark Key Events',
+                    style: textTheme.titleMedium
+                        ?.copyWith(fontWeight: FontWeight.bold)),
                 const SizedBox(height: 8),
-                ...OffTheBlockEvent.values.map((event) => _buildEventMarkerTile(event)),
+                ...OffTheBlockEvent.values
+                    .map((event) => _buildEventMarkerTile(event)),
                 const Divider(height: 24),
-                Text('Optional Stats', style: textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+                Text('Optional Stats',
+                    style: textTheme.titleMedium
+                        ?.copyWith(fontWeight: FontWeight.bold)),
                 const SizedBox(height: 16),
                 _buildOptionalStatsFields(),
                 const SizedBox(height: 24),
@@ -381,24 +476,27 @@ class _OffTheBlockAnalysisPageState extends State<OffTheBlockAnalysisPage> {
     }
 
     final totalDuration = _controller!.value.duration;
-    final timelineWidth = (totalDuration.inMilliseconds / 1000.0) * _pixelsPerSecond;
+    final timelineWidth =
+        (totalDuration.inMilliseconds / 1000.0) * _pixelsPerSecond;
 
     return Row(
       children: [
-        // IconButton(
-        //   icon: const Icon(Icons.remove),
-        //   onPressed: () => _seekFrames(-1),
-        // ),
         Expanded(
           child: NotificationListener<ScrollNotification>(
             onNotification: (notification) {
-              if (notification is ScrollStartNotification && notification.dragDetails != null) {
+              if (notification is ScrollStartNotification &&
+                  notification.dragDetails != null) {
                 setState(() => _isScrubbing = true);
                 _controller!.pause();
-              } else if (notification is ScrollUpdateNotification && _isScrubbing) {
-                final newPosition = Duration(milliseconds: (notification.metrics.pixels / _pixelsPerSecond * 1000).round());
+              } else if (notification is ScrollUpdateNotification &&
+                  _isScrubbing) {
+                final newPosition = Duration(
+                    milliseconds:
+                        (notification.metrics.pixels / _pixelsPerSecond * 1000)
+                            .round());
                 _controller!.seekTo(newPosition);
-              } else if (notification is ScrollEndNotification && _isScrubbing) {
+              } else if (notification is ScrollEndNotification &&
+                  _isScrubbing) {
                 setState(() => _isScrubbing = false);
               }
               return true;
@@ -427,9 +525,9 @@ class _OffTheBlockAnalysisPageState extends State<OffTheBlockAnalysisPage> {
           ),
         ),
         IconButton(
-          icon: const Icon(Icons.add),
-          onPressed: () => print('yet')//_seekFrames(1),
-        ),
+            icon: const Icon(Icons.add),
+            onPressed: () => print('yet') //_seekFrames(1),
+            ),
       ],
     );
   }
@@ -442,9 +540,11 @@ class _OffTheBlockAnalysisPageState extends State<OffTheBlockAnalysisPage> {
     if (markedTime != null) {
       if (startSignalTime != null) {
         final relativeTime = markedTime - startSignalTime;
-        timeText = '${(relativeTime.inMilliseconds / 1000.0).toStringAsFixed(2)}s';
+        timeText =
+            '${(relativeTime.inMilliseconds / 1000.0).toStringAsFixed(2)}s';
       } else {
-        timeText = '${(markedTime.inMilliseconds / 1000.0).toStringAsFixed(2)}s (absolute)';
+        timeText =
+            '${(markedTime.inMilliseconds / 1000.0).toStringAsFixed(2)}s (absolute)';
       }
     } else {
       timeText = 'Not marked';
@@ -454,7 +554,8 @@ class _OffTheBlockAnalysisPageState extends State<OffTheBlockAnalysisPage> {
       title: Text(event.displayName),
       subtitle: Text(
         timeText,
-        style: TextStyle(color: markedTime != null ? Colors.green : Colors.grey),
+        style:
+            TextStyle(color: markedTime != null ? Colors.green : Colors.grey),
       ),
       trailing: ElevatedButton(
         onPressed: () => _markEvent(event),
@@ -476,7 +577,8 @@ class _OffTheBlockAnalysisPageState extends State<OffTheBlockAnalysisPage> {
                     labelText: 'Start Distance (m)',
                     border: OutlineInputBorder(),
                   ),
-                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  keyboardType:
+                      const TextInputType.numberWithOptions(decimal: true),
                 ),
               ),
               const SizedBox(width: 8),
@@ -493,13 +595,16 @@ class _OffTheBlockAnalysisPageState extends State<OffTheBlockAnalysisPage> {
                           } else {
                             // When entering measurement mode:
                             _isMeasuring = true;
-                            _transformationController.value = Matrix4.identity(); // Reset zoom
+                            _transformationController.value =
+                                Matrix4.identity(); // Reset zoom
                             _controller?.pause();
                           }
                         });
                       }
                     : null,
-                style: ElevatedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 8)),
+                style: ElevatedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(
+                        vertical: 16, horizontal: 8)),
                 child: Text(_isMeasuring ? 'Cancel' : 'Measure'),
               ),
             ],
@@ -552,7 +657,8 @@ class _OffTheBlockAnalysisPageState extends State<OffTheBlockAnalysisPage> {
     if ((ref1A - ref1B).distance == 0 || (ref2A - ref2B).distance == 0) {
       if (showSnackbar) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Error: A 5m reference line has zero length.')),
+          const SnackBar(
+              content: Text('Error: A 5m reference line has zero length.')),
         );
       }
       return;
@@ -562,7 +668,8 @@ class _OffTheBlockAnalysisPageState extends State<OffTheBlockAnalysisPage> {
     final pixelsPerMeter2 = (ref2A - ref2B).distance / 5.0;
 
     // Find the closest point on each reference line segment to the midpoint of the measured line
-    final measuredMidpoint = Offset((start.dx + end.dx) / 2, (start.dy + end.dy) / 2);
+    final measuredMidpoint =
+        Offset((start.dx + end.dx) / 2, (start.dy + end.dy) / 2);
 
     final t1 = _getClosestPointOnSegment(measuredMidpoint, ref1A, ref1B);
     final t2 = _getClosestPointOnSegment(measuredMidpoint, ref2A, ref2B);
@@ -583,7 +690,8 @@ class _OffTheBlockAnalysisPageState extends State<OffTheBlockAnalysisPage> {
     final ratio = distToP1 / totalDist;
 
     // Interpolate the pixels-per-meter scale
-    final interpolatedPixelsPerMeter = pixelsPerMeter1 + (pixelsPerMeter2 - pixelsPerMeter1) * ratio;
+    final interpolatedPixelsPerMeter =
+        pixelsPerMeter1 + (pixelsPerMeter2 - pixelsPerMeter1) * ratio;
 
     if (interpolatedPixelsPerMeter == 0) return;
 
@@ -610,7 +718,9 @@ class _OffTheBlockAnalysisPageState extends State<OffTheBlockAnalysisPage> {
         });
       });
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Distance calculated: ${measuredMeters.toStringAsFixed(2)}m')),
+        SnackBar(
+            content: Text(
+                'Distance calculated: ${measuredMeters.toStringAsFixed(2)}m')),
       );
     }
   }
@@ -627,7 +737,8 @@ class _OffTheBlockAnalysisPageState extends State<OffTheBlockAnalysisPage> {
   }
 
   Widget _buildActionButtons() {
-    final allEventsMarked = OffTheBlockEvent.values.every((event) => _markedTimestamps.containsKey(event));
+    final allEventsMarked = OffTheBlockEvent.values
+        .every((event) => _markedTimestamps.containsKey(event));
 
     return Padding(
       padding: const EdgeInsets.all(16.0),
@@ -637,12 +748,18 @@ class _OffTheBlockAnalysisPageState extends State<OffTheBlockAnalysisPage> {
           ElevatedButton.icon(
             onPressed: _pickVideo,
             icon: const Icon(Icons.video_library),
-            label: Text(_controller == null ? 'Select Video' : 'Select Different Video'),
-            style: ElevatedButton.styleFrom(minimumSize: const Size(double.infinity, 50)),
+            label: Text(_controller == null
+                ? 'Select Video'
+                : 'Select Different Video'),
+            style: ElevatedButton.styleFrom(
+                minimumSize: const Size(double.infinity, 50)),
           ),
           const SizedBox(height: 10),
           ElevatedButton.icon(
-            onPressed: _controller?.value.isInitialized == true && allEventsMarked ? _calculateResults : null,
+            onPressed:
+                _controller?.value.isInitialized == true && allEventsMarked
+                    ? _calculateResults
+                    : null,
             icon: const Icon(Icons.analytics),
             label: const Text('Calculate Results'),
             style: ElevatedButton.styleFrom(
@@ -659,6 +776,7 @@ class _OffTheBlockAnalysisPageState extends State<OffTheBlockAnalysisPage> {
 
 class _ControlsOverlay extends StatelessWidget {
   const _ControlsOverlay({required this.controller});
+
   final VideoPlayerController controller;
 
   @override
@@ -675,13 +793,15 @@ class _ControlsOverlay extends StatelessWidget {
       child: AnimatedBuilder(
         animation: controller,
         builder: (context, child) {
-          final bool showPlayIcon = !controller.value.isPlaying && controller.value.position == Duration.zero;
+          final bool showPlayIcon = !controller.value.isPlaying &&
+              controller.value.position == Duration.zero;
 
           if (showPlayIcon) {
             return Container(
               color: Colors.black26,
               child: const Center(
-                child: Icon(Icons.play_arrow, color: Colors.white, size: 100.0, semanticLabel: 'Play'),
+                child: Icon(Icons.play_arrow,
+                    color: Colors.white, size: 100.0, semanticLabel: 'Play'),
               ),
             );
           } else {
@@ -690,180 +810,5 @@ class _ControlsOverlay extends StatelessWidget {
         },
       ),
     );
-  }
-}
-
-class OffTheBlockResultsPage extends StatelessWidget {
-  final Map<OffTheBlockEvent, Duration> markedTimestamps;
-  final String? startDistance;
-  final String? startHeight;
-
-  const OffTheBlockResultsPage({
-    super.key,
-    required this.markedTimestamps,
-    this.startDistance,
-    this.startHeight,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final startSignalTime = markedTimestamps[OffTheBlockEvent.startSignal] ?? Duration.zero;
-
-    final List<Widget> resultsWidgets = (markedTimestamps.entries.toList()
-          ..sort((a, b) => a.key.index.compareTo(b.key.index)))
-        .map<Widget>((entry) {
-      final eventName = entry.key.displayName;
-      final relativeTime = entry.value - startSignalTime;
-      final timeInSeconds = (relativeTime.inMilliseconds / 1000.0).toStringAsFixed(2);
-      return ListTile(
-        title: Text(eventName),
-        trailing: Text('$timeInSeconds s'),
-      );
-    }).toList();
-
-    // Calculate and add speed metrics
-    final timeTo5m = markedTimestamps[OffTheBlockEvent.reached5m];
-    final timeTo10m = markedTimestamps[OffTheBlockEvent.reached10m];
-
-    if (timeTo5m != null || timeTo10m != null) {
-      resultsWidgets.add(const Divider());
-    }
-
-    if (timeTo5m != null) {
-      final relativeTimeTo5m = timeTo5m - startSignalTime;
-      if (relativeTimeTo5m.inMilliseconds > 0) {
-        final speedTo5m = 5 / (relativeTimeTo5m.inMilliseconds / 1000.0);
-        resultsWidgets.add(ListTile(
-          title: const Text('Average Speed to 5m'),
-          trailing: Text('${speedTo5m.toStringAsFixed(2)} m/s'),
-        ));
-      }
-    }
-
-    if (timeTo10m != null) {
-      final relativeTimeTo10m = timeTo10m - startSignalTime;
-      if (relativeTimeTo10m.inMilliseconds > 0) {
-        final speedTo10m = 10 / (relativeTimeTo10m.inMilliseconds / 1000.0);
-        resultsWidgets.add(ListTile(
-          title: const Text('Average Speed to 10m'),
-          trailing: Text('${speedTo10m.toStringAsFixed(2)} m/s'),
-        ));
-      }
-    }
-
-    // Add optional stats
-    if ((startDistance != null && startDistance!.isNotEmpty) || (startHeight != null && startHeight!.isNotEmpty)) {
-      resultsWidgets.add(const Divider());
-    }
-
-    if (startDistance != null && startDistance!.isNotEmpty) {
-      resultsWidgets.add(ListTile(
-        title: const Text('Start Distance'),
-        trailing: Text('$startDistance m'),
-      ));
-    }
-    if (startHeight != null && startHeight!.isNotEmpty) {
-      resultsWidgets.add(ListTile(
-        title: const Text('Start Height'),
-        trailing: Text('$startHeight m'),
-      ));
-    }
-
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Analysis Results'),
-      ),
-      body: ListView(
-        children: resultsWidgets,
-      ),
-    );
-  }
-}
-
-class MeasurementPainter extends CustomPainter {
-  final List<Offset> points;
-  final int? selectedPointIndex;
-
-  static const double pointRadius = 2.0;
-  static const double handleYOffset = 30.0;
-  static const double selectedPointRadius = 3.0;
-  static const double handleTouchRadius = 30.0; // Increased visual touch area
-
-  MeasurementPainter({required this.points, this.selectedPointIndex});
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final refLinePaint = Paint()
-      ..color = Colors.blue.withAlpha(90)
-      ..strokeWidth = 1.5
-      ..style = PaintingStyle.stroke;
-
-    final distLinePaint = Paint()
-      ..color = Colors.red.withAlpha(90)
-      ..strokeWidth = 2.0
-      ..style = PaintingStyle.stroke;
-
-    // Draw reference lines (blue)
-    if (points.length >= 2) canvas.drawLine(points[0], points[1], refLinePaint);
-    if (points.length >= 4) canvas.drawLine(points[2], points[3], refLinePaint);
-
-    // Draw distance line (red)
-    if (points.length >= 6) canvas.drawLine(points[4], points[5], distLinePaint);
-
-    // Draw points and handles on top
-    for (int i = 0; i < points.length; i++) {
-      final point = points[i];
-      final isSelected = i == selectedPointIndex;
-
-      // Determine color based on type of point
-      Color pointColor;
-      if (i < 4) {
-        pointColor = isSelected ? Colors.lightBlueAccent : Colors.blue;
-      } else {
-        pointColor = isSelected ? Colors.yellow : Colors.red;
-      }
-
-      final pointPaint = Paint()..color = pointColor;
-      final outlinePaint = Paint()
-        ..color = Colors.white.withAlpha(80)
-        ..strokeWidth = 1.5
-        ..style = PaintingStyle.stroke;
-
-      final radius = isSelected ? selectedPointRadius : pointRadius;
-      canvas.drawCircle(point, radius, pointPaint);
-      canvas.drawCircle(point, radius, outlinePaint);
-
-      // --- Handle Drawing ---
-      final handleCenter = point + const Offset(0, handleYOffset);
-
-      // Draw the semi-transparent touch area background
-      final handleBgPaint = Paint()
-        ..color = (isSelected ? Colors.yellow.withAlpha(30) : Colors.white.withAlpha(20));
-      canvas.drawCircle(handleCenter, handleTouchRadius, handleBgPaint);
-
-      // Draw the icon on top
-      final icon = Icons.control_camera;
-      final textPainter = TextPainter(
-        text: TextSpan(
-          text: String.fromCharCode(icon.codePoint),
-          style: TextStyle(
-            color: isSelected ? Colors.yellow : Colors.white,
-            fontSize: 24,
-            fontFamily: icon.fontFamily,
-            package: icon.fontPackage,
-            shadows: const [Shadow(color: Colors.black87, blurRadius: 5)],
-          ),
-        ),
-        textDirection: TextDirection.ltr,
-      );
-      textPainter.layout();
-      final iconOffset = handleCenter - Offset(textPainter.width / 2, textPainter.height / 2);
-      textPainter.paint(canvas, iconOffset);
-    }
-  }
-
-  @override
-  bool shouldRepaint(covariant MeasurementPainter oldDelegate) {
-    return oldDelegate.points != points || oldDelegate.selectedPointIndex != selectedPointIndex;
   }
 }

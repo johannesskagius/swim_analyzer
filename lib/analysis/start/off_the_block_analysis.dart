@@ -47,13 +47,13 @@ class OffTheBlockAnalysisPage extends StatefulWidget {
 }
 
 class _OffTheBlockAnalysisPageState extends State<OffTheBlockAnalysisPage> {
+  final double startHeight = 0.75; //Todo set this in settings
   bool _isLoading = false;
   VideoPlayerController? _controller;
   final ImagePicker _picker = ImagePicker();
 
   final Map<OffTheBlockEvent, Duration> _markedTimestamps = {};
   final _startDistanceController = TextEditingController();
-  final _startHeightController = TextEditingController();
 
   // State for the precision scrubber
   late final ScrollController _scrubberScrollController;
@@ -80,21 +80,18 @@ class _OffTheBlockAnalysisPageState extends State<OffTheBlockAnalysisPage> {
   // ### NEW METHOD: Calculates jump physics based on user input ###
   Map<String, double>? _calculateJumpPhysics() {
     // 1. --- GATHER AND VALIDATE INPUTS ---
-    final String startHeightText = _startHeightController.text;
     final startDistanceText = _startDistanceController.text;
     final leftBlockTime = _markedTimestamps[OffTheBlockEvent.leftBlock];
     final touchedWaterTime = _markedTimestamps[OffTheBlockEvent.touchedWater];
 
     // Ensure all required data is present
-    if (startHeightText.isEmpty ||
-        startDistanceText.isEmpty ||
+    if (startDistanceText.isEmpty ||
         leftBlockTime == null ||
         touchedWaterTime == null) {
       return null;
     }
 
     // Use tryParse for safe number conversion
-    final double? startHeight = double.tryParse(startHeightText)??0.75;
     final double? horizontalDistance = double.tryParse(startDistanceText);
 
     if (startHeight == null || horizontalDistance == null) {
@@ -146,7 +143,6 @@ class _OffTheBlockAnalysisPageState extends State<OffTheBlockAnalysisPage> {
     _controller?.dispose();
     _scrubberScrollController.dispose();
     _startDistanceController.dispose();
-    _startHeightController.dispose();
     super.dispose();
   }
 
@@ -238,7 +234,7 @@ class _OffTheBlockAnalysisPageState extends State<OffTheBlockAnalysisPage> {
         builder: (context) => OffTheBlockResultsPage(
           markedTimestamps: _markedTimestamps,
           startDistance: _startDistanceController.text,
-          startHeight: _startHeightController.text,
+          startHeight: startHeight,
           jumpData: jumpData, // Pass the new data to the results page
         ),
       ),
@@ -608,15 +604,6 @@ class _OffTheBlockAnalysisPageState extends State<OffTheBlockAnalysisPage> {
                 child: Text(_isMeasuring ? 'Cancel' : 'Measure'),
               ),
             ],
-          ),
-          const SizedBox(height: 16),
-          TextFormField(
-            controller: _startHeightController,
-            decoration: const InputDecoration(
-              labelText: 'Start Height (m)',
-              border: OutlineInputBorder(),
-            ),
-            keyboardType: const TextInputType.numberWithOptions(decimal: true),
           ),
         ],
       );

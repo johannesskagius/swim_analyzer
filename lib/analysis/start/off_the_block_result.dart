@@ -5,16 +5,15 @@ import 'off_the_block_analysis.dart';
 class OffTheBlockResultsPage extends StatelessWidget {
   final Map<OffTheBlockEvent, Duration> markedTimestamps;
   final String? startDistance;
-  final String? startHeight;
+  final double startHeight;
   final Map<String, double>? jumpData;
 
-  const OffTheBlockResultsPage({
-    super.key,
-    required this.markedTimestamps,
-    this.startDistance,
-    this.startHeight,
-    required this.jumpData
-  });
+  const OffTheBlockResultsPage(
+      {super.key,
+      required this.markedTimestamps,
+      this.startDistance,
+      required this.startHeight,
+      required this.jumpData});
 
   @override
   Widget build(BuildContext context) {
@@ -22,12 +21,12 @@ class OffTheBlockResultsPage extends StatelessWidget {
         markedTimestamps[OffTheBlockEvent.startSignal] ?? Duration.zero;
 
     final List<Widget> resultsWidgets = (markedTimestamps.entries.toList()
-      ..sort((a, b) => a.key.index.compareTo(b.key.index)))
+          ..sort((a, b) => a.key.index.compareTo(b.key.index)))
         .map<Widget>((entry) {
       final eventName = entry.key.displayName;
       final relativeTime = entry.value - startSignalTime;
       final timeInSeconds =
-      (relativeTime.inMilliseconds / 1000.0).toStringAsFixed(2);
+          (relativeTime.inMilliseconds / 1000.0).toStringAsFixed(2);
       return ListTile(
         title: Text(eventName),
         trailing: Text('$timeInSeconds s'),
@@ -65,8 +64,7 @@ class OffTheBlockResultsPage extends StatelessWidget {
     }
 
     // Add optional stats
-    if ((startDistance != null && startDistance!.isNotEmpty) ||
-        (startHeight != null && startHeight!.isNotEmpty)) {
+    if ((startDistance != null && startDistance!.isNotEmpty)) {
       resultsWidgets.add(const Divider());
     }
 
@@ -76,12 +74,10 @@ class OffTheBlockResultsPage extends StatelessWidget {
         trailing: Text('$startDistance m'),
       ));
     }
-    if (startHeight != null && startHeight!.isNotEmpty) {
-      resultsWidgets.add(ListTile(
-        title: const Text('Start Height'),
-        trailing: Text('$startHeight m'),
-      ));
-    }
+    resultsWidgets.add(ListTile(
+      title: const Text('Start Height'),
+      trailing: Text('$startHeight m'),
+    ));
 
     if (jumpData != null) {
       resultsWidgets.add(const Divider());
@@ -99,11 +95,13 @@ class OffTheBlockResultsPage extends StatelessWidget {
       ));
       resultsWidgets.add(ListTile(
         title: const Text('Entry Velocity (Horizontal)'),
-        trailing: Text('${jumpData!['entryVelocityX']!.toStringAsFixed(2)} m/s'),
+        trailing:
+            Text('${jumpData!['entryVelocityX']!.toStringAsFixed(2)} m/s'),
       ));
       resultsWidgets.add(ListTile(
         title: const Text('Entry Velocity (Vertical)'),
-        trailing: Text('${jumpData!['entryVelocityY']!.toStringAsFixed(2)} m/s'),
+        trailing:
+            Text('${jumpData!['entryVelocityY']!.toStringAsFixed(2)} m/s'),
       ));
     }
 

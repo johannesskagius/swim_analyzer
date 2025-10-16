@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:swim_analyzer/analysis/race_analysis.dart';
-import 'package:swim_analyzer/analyze_type.dart';
+import 'package:swim_analyzer/analysis/race/race_analysis.dart';
+import 'package:swim_analyzer/analysis/analyze_type.dart';
 
-import '../not_implement_analyses.dart';
-import '../off_the_block_analysis.dart';
+import 'not_implement_analyses.dart';
+import 'start/off_the_block_analysis.dart';
 
 class PickAnalysis extends StatelessWidget {
   const PickAnalysis({super.key});

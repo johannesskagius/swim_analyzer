@@ -2,11 +2,11 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
-import 'package:swim_analyzer/analysis/race_data_analyzer.dart';
+import 'package:swim_analyzer/analysis/race/race_data_analyzer.dart';
 import 'package:swim_apps_shared/swim_apps_shared.dart';
 
-import 'add_swimmer.dart';
-import 'analysis/analysis_level.dart';
+import '../../profile/add_swimmer.dart';
+import 'analysis_level.dart';
 
 class RaceResultsView extends StatefulWidget {
   final List<RaceSegment> recordedSegments;

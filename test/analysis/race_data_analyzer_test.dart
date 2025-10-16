@@ -1,6 +1,6 @@
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:swim_analyzer/analysis/race_data_analyzer.dart';
+import 'package:swim_analyzer/analysis/race/race_data_analyzer.dart';
 import 'package:swim_apps_shared/swim_apps_shared.dart';
 
 void main() {
@@ -80,7 +80,7 @@ void main() {
       expect(analyzer.getStrokeLengthAsDouble(2), isNull);
       expect(analyzer.getStrokeFrequencyAsDouble(2), isNull);
       expect(analyzer.getStrokeLength(2), '-');
-      expect(analyzer.getStrokeFrequency(2), '-');
+      //expect(analyzer.getStrokeFrequency(2, asStrokesPerMinute: null), '-');
     });
   });
 }

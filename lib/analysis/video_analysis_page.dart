@@ -1,7 +1,7 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:video_player/video_player.dart';
-import 'model/start_analysis.dart';
+import '../model/start_analyze.dart';
 
 /// A page to display the results of a start analysis, including video playback and metrics.
 class VideoAnalysisPage extends StatefulWidget {

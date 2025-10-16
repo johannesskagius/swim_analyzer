@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:swim_analyzer/model/start_analyses_types.dart';
+import 'package:swim_analyzer/analysis/start/start_analyses_types.dart';
 
-import '../../off_the_block_analysis.dart';
+import 'off_the_block_analysis.dart';
 
 /// Pushes the corresponding analysis page onto the navigation stack.
 ///

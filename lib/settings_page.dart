@@ -5,7 +5,7 @@ import 'package:provider/provider.dart';
 import 'package:swim_analyzer/sign_in_page.dart';
 import 'package:swim_analyzer/theme_provider.dart';
 import 'package:swim_apps_shared/swim_apps_shared.dart';
-import 'edit_profile_page.dart';
+import 'profile/edit_profile_page.dart';
 
 class SettingsPage extends StatefulWidget {
   const SettingsPage({super.key});

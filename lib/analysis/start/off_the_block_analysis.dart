@@ -2,10 +2,10 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:swim_analyzer/video_analysis_page.dart';
+import 'package:swim_analyzer/analysis/video_analysis_page.dart';
 import 'package:video_player/video_player.dart';
 
-import 'model/start_analysis.dart';
+import '../../model/start_analyze.dart';
 
 class OffTheBlockAnalysisPage extends StatefulWidget {
   const OffTheBlockAnalysisPage({super.key});

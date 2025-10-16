@@ -66,8 +66,7 @@ class _OffTheBlockAnalysisPageState extends State<OffTheBlockAnalysisPage> {
   int _measurementStep = 0;
   final List<Offset> _measurementPoints = [];
   int? _draggedPointIndex;
-  bool _isPointDragInProgress = false; // Add this line
-  static const double _handleHitRadius = 22.0;
+  bool _isPointDragInProgress = false;
 
   @override
   void initState() {
@@ -82,7 +81,6 @@ class _OffTheBlockAnalysisPageState extends State<OffTheBlockAnalysisPage> {
     _scrubberScrollController.dispose();
     _startDistanceController.dispose();
     _startHeightController.dispose();
-    _transformationController.dispose();
     super.dispose();
   }
 
@@ -146,18 +144,20 @@ class _OffTheBlockAnalysisPageState extends State<OffTheBlockAnalysisPage> {
     });
   }
 
-  Future<void> _seekFrames(int frames) async {
-    if (_controller == null) return;
-    final currentPosition = _controller!.value.position;
-
-    const frameDuration = Duration(milliseconds: 1000 ~/ 30);
-    final newPosition = currentPosition + (frameDuration * frames);
-
-    await _controller!.seekTo(newPosition);
-    if (_controller!.value.isPlaying) {
-      await _controller!.pause();
-    }
-  }
+  // Future<void> _seekFrames(int frames) async {
+  //   if (_controller == null) return;
+  //   final currentPosition = _controller!.value.position;
+  //
+  //   // Use actual frame rate if available, otherwise default to 30fps
+  //   final frameRate = _controller!.value.frameRate > 0 ? _controller!.value.frameRate : 30;
+  //   final frameDuration = Duration(milliseconds: 1000 ~/ frameRate);
+  //   final newPosition = currentPosition + (frameDuration * frames);
+  //
+  //   await _controller!.seekTo(newPosition);
+  //   if (_controller!.value.isPlaying) {
+  //     await _controller!.pause();
+  //   }
+  // }
 
   void _calculateResults() {
     Navigator.of(context).push(
@@ -187,13 +187,32 @@ class _OffTheBlockAnalysisPageState extends State<OffTheBlockAnalysisPage> {
         children: <Widget>[
           if (_isMeasuring)
             Container(
-              color: Colors.blue.withOpacity(0.1),
+              color: Colors.blue.withAlpha(10),
               width: double.infinity,
+              height: 110.0, // Fixed height to prevent layout shifts when content changes.
+              alignment: Alignment.center, // Center the co
               padding: const EdgeInsets.all(12.0),
-              child: Text(
-                _getMeasurementInstruction(),
-                textAlign: TextAlign.center,
-                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  _getMeasurementInstruction().isNotEmpty ? Text(
+                    _getMeasurementInstruction(),
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                  ):const SizedBox.shrink(),
+                  if (_measurementPoints.length == 6) ...[
+                    const SizedBox(height: 8),
+                    ElevatedButton.icon(
+                      onPressed: () => _calculateMeasuredDistance(showSnackbar: true),
+                      icon: const Icon(Icons.straighten),
+                      label: const Text('Calculate Distance'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.green,
+                        foregroundColor: Colors.white,
+                      ),
+                    ),
+                  ],
+                ],
               ),
             ),
           Expanded(
@@ -203,8 +222,8 @@ class _OffTheBlockAnalysisPageState extends State<OffTheBlockAnalysisPage> {
               child: _isLoading
                   ? const Center(child: CircularProgressIndicator())
                   : _controller == null
-                  ? _buildVideoSelectionPrompt()
-                  : _buildVideoPlayer(),
+                      ? _buildVideoSelectionPrompt()
+                      : _buildVideoPlayer(),
             ),
           ),
           if (_controller != null && !_isLoading)
@@ -219,92 +238,85 @@ class _OffTheBlockAnalysisPageState extends State<OffTheBlockAnalysisPage> {
   }
 
   Widget _buildVideoSelectionPrompt() => Center(
-    child: Column(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: const [
-        Icon(Icons.video_library_outlined, size: 80, color: Colors.grey),
-        SizedBox(height: 16),
-        Text('Please select a video of a start to begin.',
-            textAlign: TextAlign.center, style: TextStyle(fontSize: 16)),
-      ],
-    ),
-  );
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: const [
+            Icon(Icons.video_library_outlined, size: 80, color: Colors.grey),
+            SizedBox(height: 16),
+            Text('Please select a video of a start to begin.',
+                textAlign: TextAlign.center, style: TextStyle(fontSize: 16)),
+          ],
+        ),
+      );
 
+  // ### Refactored Video Player with stable measurement gestures ###
   Widget _buildVideoPlayer() {
     return InteractiveViewer(
       transformationController: _transformationController,
       minScale: 1.0,
       maxScale: 8.0,
+      // CRITICAL FIX: Disable panning and scaling when measuring to prevent conflicts.
       panEnabled: !_isMeasuring,
       scaleEnabled: !_isMeasuring,
-      clipBehavior: Clip.none,
+      // Let the GestureDetector below handle all interactions during measurement.
+      onInteractionStart: null,
+      onInteractionUpdate: null,
+      onInteractionEnd: null,
+      child: GestureDetector(
+        // --- GESTURE HANDLING FOR MEASUREMENT ---
+        onTapUp: (details) {
+          if (!_isMeasuring || _isPointDragInProgress || _measurementPoints.length >= 6) return;
 
-      onInteractionStart: (details) {
-        if (!_isMeasuring || details.pointerCount > 1) return;
-
-        final sceneOffset = _transformationController.toScene(details.localFocalPoint);
-        int? hitIndex;
-        // Check if we hit a handle, searching backwards (top-most layers first).
-        for (int i = _measurementPoints.length - 1; i >= 0; i--) {
-          final handleCenter = _measurementPoints[i] + const Offset(0, MeasurementPainter.handleYOffset);
-          if ((sceneOffset - handleCenter).distance < _handleHitRadius) {
-            hitIndex = i;
-            break;
+          final sceneOffset = _transformationController.toScene(details.localPosition);
+          // Don't add a point if tapping on an existing handle
+          for (int i = 0; i < _measurementPoints.length; i++) {
+            final handleCenter = _measurementPoints[i] + const Offset(0, MeasurementPainter.handleYOffset);
+            if ((sceneOffset - handleCenter).distance < MeasurementPainter.handleTouchRadius) {
+              return;
+            }
           }
-        }
-
-        if (hitIndex != null) {
           setState(() {
-            _draggedPointIndex = hitIndex;
-            _isPointDragInProgress = true;
+            _measurementPoints.add(sceneOffset);
+            _measurementStep++;
           });
-        }
-      },
-
-      onInteractionUpdate: (details) {
-        if (_isPointDragInProgress && _draggedPointIndex != null) {
-          final sceneOffset = _transformationController.toScene(details.localFocalPoint);
-          setState(() {
-            _measurementPoints[_draggedPointIndex!] = sceneOffset;
-          });
-        }
-      },
-
-      onInteractionEnd: (details) {
-        if (_isPointDragInProgress) {
-          if (_measurementPoints.length == 6) {
-            _calculateMeasuredDistance(showSnackbar: false);
+        },
+        onPanStart: (details) {
+          if (!_isMeasuring) return;
+          final sceneOffset = _transformationController.toScene(details.localPosition);
+          int? hitIndex;
+          // Check if the pan started on a handle (in reverse order for Z-index)
+          for (int i = _measurementPoints.length - 1; i >= 0; i--) {
+            final handleCenter = _measurementPoints[i] + const Offset(0, MeasurementPainter.handleYOffset);
+            if ((sceneOffset - handleCenter).distance < MeasurementPainter.handleTouchRadius) {
+              hitIndex = i;
+              break;
+            }
           }
+          if (hitIndex != null) {
+            setState(() {
+              _draggedPointIndex = hitIndex;
+              _isPointDragInProgress = true;
+            });
+          }
+        },
+        onPanUpdate: (details) {
+          if (!_isPointDragInProgress || _draggedPointIndex == null) return;
+          final sceneOffset = _transformationController.toScene(details.localPosition);
+          setState(() {
+            _measurementPoints[_draggedPointIndex!] = sceneOffset - const Offset(0, MeasurementPainter.handleYOffset);
+          });
+        },
+        onPanEnd: (details) {
+          if (!_isPointDragInProgress) return;
           setState(() {
             _draggedPointIndex = null;
             _isPointDragInProgress = false;
           });
-        }
-      },
-
-      child: GestureDetector(
-        onTapUp: (details) {
-          if (!_isMeasuring) return;
-          // Don't add new points if a drag is in progress or we already have all points.
-          if (_isPointDragInProgress || _measurementPoints.length >= 6) return;
-
-          final sceneOffset = _transformationController.toScene(details.localPosition);
-
-          // Check if we tapped a handle; if so, do nothing and let interaction callbacks handle it.
-          for (int i = 0; i < _measurementPoints.length; i++) {
-            final handleCenter = _measurementPoints[i] + const Offset(0, MeasurementPainter.handleYOffset);
-            if ((sceneOffset - handleCenter).distance < _handleHitRadius) return;
-          }
-
-          setState(() {
-            _measurementPoints.add(sceneOffset);
-            _measurementStep++;
-            if (_measurementStep == 6) _calculateMeasuredDistance();
-          });
         },
+        // --- END GESTURE HANDLING ---
         onDoubleTap: () {
-          // Only allow double-tap reset when not measuring to avoid conflicts.
-          if(!_isMeasuring) {
+          // Allow double-tap to reset zoom only when NOT measuring.
+          if (!_isMeasuring) {
             _transformationController.value = Matrix4.identity();
           }
         },
@@ -373,10 +385,10 @@ class _OffTheBlockAnalysisPageState extends State<OffTheBlockAnalysisPage> {
 
     return Row(
       children: [
-        IconButton(
-          icon: const Icon(Icons.remove),
-          onPressed: () => _seekFrames(-1),
-        ),
+        // IconButton(
+        //   icon: const Icon(Icons.remove),
+        //   onPressed: () => _seekFrames(-1),
+        // ),
         Expanded(
           child: NotificationListener<ScrollNotification>(
             onNotification: (notification) {
@@ -416,7 +428,7 @@ class _OffTheBlockAnalysisPageState extends State<OffTheBlockAnalysisPage> {
         ),
         IconButton(
           icon: const Icon(Icons.add),
-          onPressed: () => _seekFrames(1),
+          onPressed: () => print('yet')//_seekFrames(1),
         ),
       ],
     );
@@ -453,55 +465,56 @@ class _OffTheBlockAnalysisPageState extends State<OffTheBlockAnalysisPage> {
   }
 
   Widget _buildOptionalStatsFields() => Column(
-    children: [
-      Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Expanded(
-            child: TextFormField(
-              controller: _startDistanceController,
-              decoration: const InputDecoration(
-                labelText: 'Start Distance (m)',
-                border: OutlineInputBorder(),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: TextFormField(
+                  controller: _startDistanceController,
+                  decoration: const InputDecoration(
+                    labelText: 'Start Distance (m)',
+                    border: OutlineInputBorder(),
+                  ),
+                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                ),
               ),
-              keyboardType: const TextInputType.numberWithOptions(decimal: true),
-            ),
+              const SizedBox(width: 8),
+              ElevatedButton(
+                onPressed: _controller != null
+                    ? () {
+                        setState(() {
+                          if (_isMeasuring) {
+                            _isMeasuring = false;
+                            _measurementPoints.clear();
+                            _measurementStep = 0;
+                            _draggedPointIndex = null;
+                            _isPointDragInProgress = false;
+                          } else {
+                            // When entering measurement mode:
+                            _isMeasuring = true;
+                            _transformationController.value = Matrix4.identity(); // Reset zoom
+                            _controller?.pause();
+                          }
+                        });
+                      }
+                    : null,
+                style: ElevatedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 8)),
+                child: Text(_isMeasuring ? 'Cancel' : 'Measure'),
+              ),
+            ],
           ),
-          const SizedBox(width: 8),
-          ElevatedButton(
-            onPressed: _controller != null
-                ? () {
-              setState(() {
-                if (_isMeasuring) {
-                  _isMeasuring = false;
-                  _measurementPoints.clear();
-                  _measurementStep = 0;
-                  _draggedPointIndex = null;
-                  _isPointDragInProgress = false;
-                } else {
-                  _isMeasuring = true;
-                  _transformationController.value = Matrix4.identity();
-                  _controller?.pause();
-                }
-              });
-            }
-                : null,
-            style: ElevatedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 8)),
-            child: Text(_isMeasuring ? 'Cancel' : 'Measure'),
+          const SizedBox(height: 16),
+          TextFormField(
+            controller: _startHeightController,
+            decoration: const InputDecoration(
+              labelText: 'Start Height (m)',
+              border: OutlineInputBorder(),
+            ),
+            keyboardType: const TextInputType.numberWithOptions(decimal: true),
           ),
         ],
-      ),
-      const SizedBox(height: 16),
-      TextFormField(
-        controller: _startHeightController,
-        decoration: const InputDecoration(
-          labelText: 'Start Height (m)',
-          border: OutlineInputBorder(),
-        ),
-        keyboardType: const TextInputType.numberWithOptions(decimal: true),
-      ),
-    ],
-  );
+      );
 
   String _getMeasurementInstruction() {
     if (_draggedPointIndex != null) {
@@ -521,7 +534,7 @@ class _OffTheBlockAnalysisPageState extends State<OffTheBlockAnalysisPage> {
       case 5:
         return "6/6: Tap where the swimmer enters the water";
       default:
-        return 'All points marked. Drag to adjust or press Cancel to restart.';
+        return "";
     }
   }
 
@@ -537,7 +550,7 @@ class _OffTheBlockAnalysisPageState extends State<OffTheBlockAnalysisPage> {
 
     // Ensure reference lines have length
     if ((ref1A - ref1B).distance == 0 || (ref2A - ref2B).distance == 0) {
-      if(showSnackbar) {
+      if (showSnackbar) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Error: A 5m reference line has zero length.')),
         );
@@ -559,7 +572,8 @@ class _OffTheBlockAnalysisPageState extends State<OffTheBlockAnalysisPage> {
 
     // Find how far the measured line is between the two reference lines
     final totalDist = (p1 - p2).distance;
-    if (totalDist < 1e-6) { // Avoid division by zero if lines are on top of each other
+    if (totalDist < 1e-6) {
+      // Avoid division by zero if lines are on top of each other
       final measuredMeters = (start - end).distance / pixelsPerMeter1;
       _updateDistance(measuredMeters, showSnackbar);
       return;
@@ -611,7 +625,6 @@ class _OffTheBlockAnalysisPageState extends State<OffTheBlockAnalysisPage> {
     final t = ap_dot_ab / ab2;
     return t.clamp(0.0, 1.0); // Clamp to the segment
   }
-
 
   Widget _buildActionButtons() {
     final allEventsMarked = OffTheBlockEvent.values.every((event) => _markedTimestamps.containsKey(event));
@@ -697,7 +710,7 @@ class OffTheBlockResultsPage extends StatelessWidget {
     final startSignalTime = markedTimestamps[OffTheBlockEvent.startSignal] ?? Duration.zero;
 
     final List<Widget> resultsWidgets = (markedTimestamps.entries.toList()
-      ..sort((a, b) => a.key.index.compareTo(b.key.index)))
+          ..sort((a, b) => a.key.index.compareTo(b.key.index)))
         .map<Widget>((entry) {
       final eventName = entry.key.displayName;
       final relativeTime = entry.value - startSignalTime;
@@ -771,21 +784,22 @@ class MeasurementPainter extends CustomPainter {
   final List<Offset> points;
   final int? selectedPointIndex;
 
-  static const double pointRadius = 4.0;
-  static const double handleYOffset = 25.0;
-  static const double selectedPointRadius = 6.0;
+  static const double pointRadius = 2.0;
+  static const double handleYOffset = 30.0;
+  static const double selectedPointRadius = 3.0;
+  static const double handleTouchRadius = 30.0; // Increased visual touch area
 
   MeasurementPainter({required this.points, this.selectedPointIndex});
 
   @override
   void paint(Canvas canvas, Size size) {
     final refLinePaint = Paint()
-      ..color = Colors.blue.withOpacity(0.9)
+      ..color = Colors.blue.withAlpha(90)
       ..strokeWidth = 1.5
       ..style = PaintingStyle.stroke;
 
     final distLinePaint = Paint()
-      ..color = Colors.red.withOpacity(0.9)
+      ..color = Colors.red.withAlpha(90)
       ..strokeWidth = 2.0
       ..style = PaintingStyle.stroke;
 
@@ -811,7 +825,7 @@ class MeasurementPainter extends CustomPainter {
 
       final pointPaint = Paint()..color = pointColor;
       final outlinePaint = Paint()
-        ..color = Colors.white.withOpacity(0.8)
+        ..color = Colors.white.withAlpha(80)
         ..strokeWidth = 1.5
         ..style = PaintingStyle.stroke;
 
@@ -819,22 +833,32 @@ class MeasurementPainter extends CustomPainter {
       canvas.drawCircle(point, radius, pointPaint);
       canvas.drawCircle(point, radius, outlinePaint);
 
+      // --- Handle Drawing ---
+      final handleCenter = point + const Offset(0, handleYOffset);
+
+      // Draw the semi-transparent touch area background
+      final handleBgPaint = Paint()
+        ..color = (isSelected ? Colors.yellow.withAlpha(30) : Colors.white.withAlpha(20));
+      canvas.drawCircle(handleCenter, handleTouchRadius, handleBgPaint);
+
+      // Draw the icon on top
       final icon = Icons.control_camera;
       final textPainter = TextPainter(
         text: TextSpan(
           text: String.fromCharCode(icon.codePoint),
           style: TextStyle(
             color: isSelected ? Colors.yellow : Colors.white,
-            fontSize: 24, // Icons can have different sizing needs than text
+            fontSize: 24,
             fontFamily: icon.fontFamily,
-            shadows: const [Shadow(color: Colors.black54, blurRadius: 4)],
+            package: icon.fontPackage,
+            shadows: const [Shadow(color: Colors.black87, blurRadius: 5)],
           ),
         ),
         textDirection: TextDirection.ltr,
       );
       textPainter.layout();
-      final handleOffset = point + Offset(-textPainter.width / 2, handleYOffset - textPainter.height / 2);
-      textPainter.paint(canvas, handleOffset);
+      final iconOffset = handleCenter - Offset(textPainter.width / 2, textPainter.height / 2);
+      textPainter.paint(canvas, iconOffset);
     }
   }
 

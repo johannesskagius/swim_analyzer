@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:swim_analyzer/analysis/race/race_analysis.dart';
 import 'package:swim_analyzer/analysis/analyze_type.dart';
+import 'package:swim_analyzer/analysis/start/start_analyses_types.dart';
+import 'package:swim_analyzer/analysis/start/start_analysis.dart';
 
 import 'not_implement_analyses.dart';
 import 'start/off_the_block_analysis.dart';
@@ -24,7 +26,7 @@ class PickAnalysis extends StatelessWidget {
         targetPage = RaceAnalysisView();
         break;
       case AnalyzeType.start:
-        targetPage = const OffTheBlockAnalysisPage();
+        targetPage = const StartAnalysis();
         break;
       case AnalyzeType.stroke:
         targetPage = const StrokeAnalysisPage();

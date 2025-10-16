@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:swim_apps_shared/swim_apps_shared.dart';
+import 'package:swim_analyzer/profile/create_swimmer_page.dart';
 
 class MySwimmersPage extends StatelessWidget {
   const MySwimmersPage({super.key});
@@ -63,6 +64,17 @@ class MySwimmersPage extends StatelessWidget {
             },
           );
         },
+      ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () {
+          Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (context) => const CreateSwimmerPage(),
+            ),
+          );
+        },
+        tooltip: 'Add Swimmer',
+        child: const Icon(Icons.add),
       ),
     );
   }

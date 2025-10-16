@@ -235,9 +235,8 @@ class _OffTheBlockAnalysisPageState extends State<OffTheBlockAnalysisPage> {
       transformationController: _transformationController,
       minScale: 1.0,
       maxScale: 8.0,
-      // Disable pan/scale temporarily while a point is being dragged.
-      panEnabled: !_isPointDragInProgress,
-      scaleEnabled: !_isPointDragInProgress,
+      panEnabled: !_isMeasuring,
+      scaleEnabled: !_isMeasuring,
       clipBehavior: Clip.none,
 
       onInteractionStart: (details) {
@@ -481,6 +480,7 @@ class _OffTheBlockAnalysisPageState extends State<OffTheBlockAnalysisPage> {
                   _isPointDragInProgress = false;
                 } else {
                   _isMeasuring = true;
+                  _transformationController.value = Matrix4.identity();
                   _controller?.pause();
                 }
               });
@@ -819,13 +819,14 @@ class MeasurementPainter extends CustomPainter {
       canvas.drawCircle(point, radius, pointPaint);
       canvas.drawCircle(point, radius, outlinePaint);
 
+      final icon = Icons.control_camera;
       final textPainter = TextPainter(
         text: TextSpan(
-          text: '#',
+          text: String.fromCharCode(icon.codePoint),
           style: TextStyle(
             color: isSelected ? Colors.yellow : Colors.white,
-            fontSize: 20,
-            fontWeight: FontWeight.bold,
+            fontSize: 24, // Icons can have different sizing needs than text
+            fontFamily: icon.fontFamily,
             shadows: const [Shadow(color: Colors.black54, blurRadius: 4)],
           ),
         ),

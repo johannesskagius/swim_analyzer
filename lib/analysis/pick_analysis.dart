@@ -45,6 +45,11 @@ class PickAnalysis extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final Set<AnalyzeType> implementedTypes = {
+      AnalyzeType.race,
+      AnalyzeType.start
+    };
+
     return GridView(
         padding: const EdgeInsets.all(12.0), // Add padding around the grid
         gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
@@ -63,11 +68,6 @@ class PickAnalysis extends StatelessWidget {
               child: InkWell(
                 borderRadius: BorderRadius.circular(16),
                 onTap: () {
-                  final implementedTypes = {
-                    AnalyzeType.race,
-                    AnalyzeType.start
-                  };
-
                   if (implementedTypes.contains(a)) {
                     // If the type is implemented, navigate to its page.
                     pushRoute(context, a);
@@ -98,7 +98,7 @@ class PickAnalysis extends StatelessWidget {
                     Icon(
                       getIconForAnalysis(a),
                       size: 64, // Increase icon size for better visibility
-                      color: theme.colorScheme.primary, // Use theme color
+                      color: implementedTypes.contains(a) ? theme.colorScheme.primary:theme.colorScheme.primary.withAlpha(50), // Use theme color
                     ),
                     const SizedBox(height: 16),
                     Text(

@@ -5,7 +5,8 @@ import 'package:provider/provider.dart';
 import 'package:swim_analyzer/sign_in_page.dart';
 import 'package:swim_analyzer/theme_provider.dart';
 import 'package:swim_apps_shared/swim_apps_shared.dart';
-import 'profile/edit_profile_page.dart';
+import 'profile/profile_page.dart';
+import 'profile/my_swimmers_page.dart';
 
 class SettingsPage extends StatefulWidget {
   const SettingsPage({super.key});
@@ -18,7 +19,6 @@ class _SettingsPageState extends State<SettingsPage> {
   Future<void> _signOut() async {
     await FirebaseAuth.instance.signOut();
     if (mounted) {
-      // Return to the previous screen, AuthWrapper will handle the redirect.
       Navigator.of(context).pop();
     }
   }
@@ -82,8 +82,7 @@ class _SettingsPageState extends State<SettingsPage> {
             return ListView(
               children: [
                 const Padding(
-                  padding:
-                      EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+                  padding: EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
                   child:
                       Text('Account', style: TextStyle(fontWeight: FontWeight.bold)),
                 ),
@@ -119,6 +118,13 @@ class _SettingsPageState extends State<SettingsPage> {
                 title: Text(user.name,
                     style: const TextStyle(fontWeight: FontWeight.bold)),
                 subtitle: Text('${user.email} | $role'),
+                onTap: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (context) => const ProfilePage(),
+                    ),
+                  );
+                },
               ),
               const Divider(),
               const Padding(
@@ -126,17 +132,18 @@ class _SettingsPageState extends State<SettingsPage> {
                 child:
                     Text('Account', style: TextStyle(fontWeight: FontWeight.bold)),
               ),
-              ListTile(
-                leading: const Icon(Icons.person_outline),
-                title: const Text('Edit Profile'),
-                onTap: () {
-                  Navigator.of(context).push(
-                    MaterialPageRoute(
-                      builder: (context) => const EditProfilePage(),
-                    ),
-                  );
-                },
-              ),
+              if (user.userType == UserType.coach)
+                ListTile(
+                  leading: const Icon(Icons.group_outlined),
+                  title: const Text('My Swimmers'),
+                  onTap: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (context) => const MySwimmersPage(),
+                      ),
+                    );
+                  },
+                ),
               ListTile(
                 leading: const Icon(Icons.logout),
                 title: const Text('Log Out'),

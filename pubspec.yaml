@@ -33,6 +33,7 @@ dependencies:
     git:
       url: git@github.com:johannesskagius/swim_apps_shared.git
       ref: master
+      
 
   #swim_apps_shared:
   #  path: /Users/johannesskagius/Company/projects/swim_apps_shared/

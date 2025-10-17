@@ -3,7 +3,6 @@ import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import 'package:swim_analyzer/analysis/start/off_the_block_enums.dart';
 import 'package:swim_apps_shared/swim_apps_shared.dart';
-import 'dart:math';
 
 class CompareStartsPage extends StatefulWidget {
   final AppUser appUser;
@@ -56,7 +55,6 @@ class _CompareStartsPageState extends State<CompareStartsPage> {
     return 'N/A';
   }
 
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -90,52 +88,59 @@ class _CompareStartsPageState extends State<CompareStartsPage> {
 
           // A map where the key is the metric name and the value is a list of results for each analysis.
           final Map<String, List<String>> comparisonData = {
-            'Date': analyses
-                .map((a) => DateFormat.yMMMd().format(a.date))
+            'Date':
+                analyses.map((a) => DateFormat.yMMMd().format(a.date)).toList(),
+            'Distance (m)': analyses
+                .map((a) => a.startDistance.toStringAsFixed(2))
                 .toList(),
-            'Distance (m)':
-            analyses.map((a) => a.startDistance.toStringAsFixed(2)).toList(),
             'Height (m)':
-            analyses.map((a) => a.startHeight.toStringAsFixed(2)).toList(),
+                analyses.map((a) => a.startHeight.toStringAsFixed(2)).toList(),
             'Time on Block (s)': analyses
                 .map((a) => _formatInterval(a.markedTimestamps,
-                OffTheBlockEvent.startSignal, OffTheBlockEvent.leftBlock))
+                    OffTheBlockEvent.startSignal, OffTheBlockEvent.leftBlock))
                 .toList(),
             'Flight Time (s)': analyses
                 .map((a) => _formatInterval(a.markedTimestamps,
-                OffTheBlockEvent.leftBlock, OffTheBlockEvent.touchedWater))
+                    OffTheBlockEvent.leftBlock, OffTheBlockEvent.touchedWater))
                 .toList(),
             'Entry Time (s)': analyses
-                .map((a) => _formatInterval(a.markedTimestamps,
-                OffTheBlockEvent.touchedWater, OffTheBlockEvent.submergedFully))
+                .map((a) => _formatInterval(
+                    a.markedTimestamps,
+                    OffTheBlockEvent.touchedWater,
+                    OffTheBlockEvent.submergedFully))
                 .toList(),
             'Time to 5m (s)': analyses
                 .map((a) => _formatInterval(a.markedTimestamps,
-                OffTheBlockEvent.startSignal, OffTheBlockEvent.reached5m))
+                    OffTheBlockEvent.startSignal, OffTheBlockEvent.reached5m))
                 .toList(),
             'Time to 10m (s)': analyses
-                .map((a) => _formatInterval(
-                a.markedTimestamps,
-                OffTheBlockEvent.startSignal,
-                OffTheBlockEvent.reached10m))
+                .map((a) => _formatInterval(a.markedTimestamps,
+                    OffTheBlockEvent.startSignal, OffTheBlockEvent.reached10m))
                 .toList(),
             'Time to 15m (s)': analyses
-                .map((a) => _formatInterval(
-                a.markedTimestamps,
-                OffTheBlockEvent.startSignal,
-                OffTheBlockEvent.reached15m))
+                .map((a) => _formatInterval(a.markedTimestamps,
+                    OffTheBlockEvent.startSignal, OffTheBlockEvent.reached15m))
                 .toList(),
             'Avg Velocity to 5m (m/s)': analyses
-                .map((a) => _formatVelocity(a.markedTimestamps,
-                OffTheBlockEvent.startSignal, OffTheBlockEvent.reached5m, 5.0))
+                .map((a) => _formatVelocity(
+                    a.markedTimestamps,
+                    OffTheBlockEvent.startSignal,
+                    OffTheBlockEvent.reached5m,
+                    5.0))
                 .toList(),
             'Avg Velocity to 10m (m/s)': analyses
-                .map((a) => _formatVelocity(a.markedTimestamps,
-                OffTheBlockEvent.startSignal, OffTheBlockEvent.reached10m, 10.0))
+                .map((a) => _formatVelocity(
+                    a.markedTimestamps,
+                    OffTheBlockEvent.startSignal,
+                    OffTheBlockEvent.reached10m,
+                    10.0))
                 .toList(),
             'Avg Velocity to 15m (m/s)': analyses
-                .map((a) => _formatVelocity(a.markedTimestamps,
-                OffTheBlockEvent.startSignal, OffTheBlockEvent.reached15m, 15.0))
+                .map((a) => _formatVelocity(
+                    a.markedTimestamps,
+                    OffTheBlockEvent.startSignal,
+                    OffTheBlockEvent.reached15m,
+                    15.0))
                 .toList(),
           };
 
@@ -177,7 +182,10 @@ class _CompareStartsPageState extends State<CompareStartsPage> {
             final isHigherBetter = higherIsBetterMetrics.contains(metric);
 
             final valuesAsStrings = comparisonData[metric]!;
-            final values = valuesAsStrings.map((s) => double.tryParse(s)).whereType<double>().toList();
+            final values = valuesAsStrings
+                .map((s) => double.tryParse(s))
+                .whereType<double>()
+                .toList();
 
             if (values.isNotEmpty) {
               final average = values.reduce((a, b) => a + b) / values.length;
@@ -250,7 +258,7 @@ class _CompareStartsPageState extends State<CompareStartsPage> {
                       label: Text('Metric',
                           style: TextStyle(fontWeight: FontWeight.bold))),
                   ...analyses.map((a) => DataColumn(
-                      label: SizedBox(
+                          label: SizedBox(
                         width: 100,
                         child: Text(a.title,
                             style: const TextStyle(fontWeight: FontWeight.bold),
@@ -278,9 +286,11 @@ class _CompareStartsPageState extends State<CompareStartsPage> {
                     final bestIndex = bestValueIndices[metric];
 
                     return DataRow(
-                      color: MaterialStateProperty.all(rowColor),
+                      color: WidgetStateProperty.all(rowColor),
                       cells: [
-                        DataCell(Text(metric, style: const TextStyle(fontWeight: FontWeight.w500))),
+                        DataCell(Text(metric,
+                            style:
+                                const TextStyle(fontWeight: FontWeight.w500))),
                         ...values.asMap().entries.map((entry) {
                           final colIndex = entry.key;
                           final val = entry.value;
@@ -288,23 +298,29 @@ class _CompareStartsPageState extends State<CompareStartsPage> {
 
                           return DataCell(
                             Container(
-                              color: isBest ? theme.colorScheme.primary.withOpacity(0.2) : null,
+                              color: isBest
+                                  ? theme.colorScheme.primary.withOpacity(0.2)
+                                  : null,
                               child: Center(
                                 child: Text(
                                   val,
                                   style: isBest
                                       ? TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                    color: theme.colorScheme.primary,
-                                  )
+                                          fontWeight: FontWeight.bold,
+                                          color: theme.colorScheme.primary,
+                                        )
                                       : null,
                                 ),
                               ),
                             ),
                           );
                         }).toList(),
-                        DataCell(Center(child: Text(averageData[metric] ?? 'N/A'))),
-                        DataCell(Center(child: Text(bestData[metric] ?? 'N/A', style: const TextStyle(fontWeight: FontWeight.bold)))),
+                        DataCell(
+                            Center(child: Text(averageData[metric] ?? 'N/A'))),
+                        DataCell(Center(
+                            child: Text(bestData[metric] ?? 'N/A',
+                                style: const TextStyle(
+                                    fontWeight: FontWeight.bold)))),
                       ],
                     );
                   } else if (metricDef is Map) {
@@ -320,7 +336,9 @@ class _CompareStartsPageState extends State<CompareStartsPage> {
                     return DataRow(
                       color: MaterialStateProperty.all(rowColor),
                       cells: [
-                        DataCell(Text(title, style: const TextStyle(fontWeight: FontWeight.w500))),
+                        DataCell(Text(title,
+                            style:
+                                const TextStyle(fontWeight: FontWeight.w500))),
                         ...List.generate(analyses.length, (colIndex) {
                           final timeVal = timeValues[colIndex];
                           final velocityVal = velocityValues[colIndex];
@@ -338,9 +356,9 @@ class _CompareStartsPageState extends State<CompareStartsPage> {
                                       text: '${timeVal}s',
                                       style: isBestTime
                                           ? TextStyle(
-                                        fontWeight: FontWeight.bold,
-                                        color: theme.colorScheme.primary,
-                                      )
+                                              fontWeight: FontWeight.bold,
+                                              color: theme.colorScheme.primary,
+                                            )
                                           : null,
                                     ),
                                     const TextSpan(text: '\n'),
@@ -348,9 +366,9 @@ class _CompareStartsPageState extends State<CompareStartsPage> {
                                       text: '${velocityVal}m/s',
                                       style: isBestVelocity
                                           ? TextStyle(
-                                        fontWeight: FontWeight.bold,
-                                        color: theme.colorScheme.primary,
-                                      )
+                                              fontWeight: FontWeight.bold,
+                                              color: theme.colorScheme.primary,
+                                            )
                                           : null,
                                     ),
                                   ],
@@ -366,10 +384,13 @@ class _CompareStartsPageState extends State<CompareStartsPage> {
                               text: TextSpan(
                                   style: DefaultTextStyle.of(context).style,
                                   children: [
-                                    TextSpan(text: '${averageData[timeMetric] ?? 'N/A'}s\n'),
-                                    TextSpan(text: '${averageData[velocityMetric] ?? 'N/A'}m/s'),
-                                  ]
-                              ),
+                                    TextSpan(
+                                        text:
+                                            '${averageData[timeMetric] ?? 'N/A'}s\n'),
+                                    TextSpan(
+                                        text:
+                                            '${averageData[velocityMetric] ?? 'N/A'}m/s'),
+                                  ]),
                             ),
                           ),
                         ),
@@ -381,16 +402,17 @@ class _CompareStartsPageState extends State<CompareStartsPage> {
                                   style: DefaultTextStyle.of(context).style,
                                   children: [
                                     TextSpan(
-                                        text: '${bestData[timeMetric] ?? 'N/A'}s',
-                                        style: const TextStyle(fontWeight: FontWeight.bold)
-                                    ),
+                                        text:
+                                            '${bestData[timeMetric] ?? 'N/A'}s',
+                                        style: const TextStyle(
+                                            fontWeight: FontWeight.bold)),
                                     const TextSpan(text: '\n'),
                                     TextSpan(
-                                        text: '${bestData[velocityMetric] ?? 'N/A'}m/s',
-                                        style: const TextStyle(fontWeight: FontWeight.bold)
-                                    ),
-                                  ]
-                              ),
+                                        text:
+                                            '${bestData[velocityMetric] ?? 'N/A'}m/s',
+                                        style: const TextStyle(
+                                            fontWeight: FontWeight.bold)),
+                                  ]),
                             ),
                           ),
                         ),

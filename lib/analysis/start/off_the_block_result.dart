@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:swim_apps_shared/swim_apps_shared.dart';
 
-import 'off_the_block_analysis.dart';
 import 'off_the_block_enums.dart';
 
 class OffTheBlockResultsPage extends StatefulWidget {
@@ -20,7 +19,9 @@ class OffTheBlockResultsPage extends StatefulWidget {
       required this.markedTimestamps,
       this.startDistance,
       required this.startHeight,
-      required this.jumpData, required this.appUser, this.id});
+      required this.jumpData,
+      required this.appUser,
+      this.id});
 
   @override
   State<OffTheBlockResultsPage> createState() => _OffTheBlockResultsPageState();
@@ -32,7 +33,6 @@ class _OffTheBlockResultsPageState extends State<OffTheBlockResultsPage> {
 
   // The title controller needs to be created and disposed properly.
   final _titleController = TextEditingController();
-
 
   @override
   void initState() {
@@ -48,7 +48,7 @@ class _OffTheBlockResultsPageState extends State<OffTheBlockResultsPage> {
 
   Future<void> _handleSave() async {
     final scaffoldMessenger = ScaffoldMessenger.of(context);
-    if(widget.id ==null){
+    if (widget.id == null) {
       scaffoldMessenger.showSnackBar(
         SnackBar(
           content: Text('This analysis is already saved'),
@@ -166,7 +166,8 @@ class _OffTheBlockResultsPageState extends State<OffTheBlockResultsPage> {
         startHeight: widget.startHeight,
         jumpData: widget.jumpData,
         clubId: selectedSwimmer.clubId ?? '',
-        coachId: appUser is Coach ? appUser.id : selectedSwimmer.creatorId ?? '',
+        coachId:
+            appUser is Coach ? appUser.id : selectedSwimmer.creatorId ?? '',
         createdDate: DateTime.now(),
       );
 

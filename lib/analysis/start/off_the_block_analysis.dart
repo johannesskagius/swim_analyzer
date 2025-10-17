@@ -343,7 +343,6 @@ class _OffTheBlockAnalysisPageState extends State<OffTheBlockAnalysisPage> {
       transformationController: _transformationController,
       minScale: 1.0,
       maxScale: 8.0,
-      // CRITICAL FIX: Disable panning and scaling when measuring to prevent conflicts.
       panEnabled: !_isMeasuring,
       scaleEnabled: !_isMeasuring,
       // Let the GestureDetector below handle all interactions during measurement.
@@ -351,7 +350,6 @@ class _OffTheBlockAnalysisPageState extends State<OffTheBlockAnalysisPage> {
       onInteractionUpdate: null,
       onInteractionEnd: null,
       child: GestureDetector(
-        // --- GESTURE HANDLING FOR MEASUREMENT ---
         onTapUp: (details) {
           if (!_isMeasuring ||
               _isPointDragInProgress ||
@@ -490,7 +488,7 @@ class _OffTheBlockAnalysisPageState extends State<OffTheBlockAnalysisPage> {
     return Row(
       children: [
         IconButton(
-          icon: const Icon(Icons.add),
+          icon: const Icon(Icons.arrow_back_outlined),
           onPressed: () => _seekFrames(isForward: false),
         ),
         Expanded(
@@ -537,7 +535,7 @@ class _OffTheBlockAnalysisPageState extends State<OffTheBlockAnalysisPage> {
           ),
         ),
         IconButton(
-          icon: const Icon(Icons.add),
+          icon: const Icon(Icons.arrow_forward_outlined),
           onPressed: () => _seekFrames(isForward: true),
         ),
       ],

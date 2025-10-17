@@ -770,7 +770,7 @@ packages:
     description:
       path: "."
       ref: master
-      resolved-ref: "285b53a5fbf1bb0fb7d984b784014cec705f0621"
+      resolved-ref: c9d2388ef5303803a2b9ae276023a96606d3749c
       url: "git@github.com:johannesskagius/swim_apps_shared.git"
     source: git
     version: "0.0.1"

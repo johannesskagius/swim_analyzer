@@ -12,13 +12,14 @@ class OffTheBlockResultsPage extends StatefulWidget {
   final double startHeight;
   final Map<String, double>? jumpData;
   final AppUser appUser;
+  final String? id;
 
   const OffTheBlockResultsPage(
       {super.key,
       required this.markedTimestamps,
       this.startDistance,
       required this.startHeight,
-      required this.jumpData, required this.appUser});
+      required this.jumpData, required this.appUser, this.id});
 
   @override
   State<OffTheBlockResultsPage> createState() => _OffTheBlockResultsPageState();
@@ -45,6 +46,15 @@ class _OffTheBlockResultsPageState extends State<OffTheBlockResultsPage> {
   }
 
   Future<void> _handleSave() async {
+    final scaffoldMessenger = ScaffoldMessenger.of(context);
+    if(widget.id ==null){
+      scaffoldMessenger.showSnackBar(
+        SnackBar(
+          content: Text('This analysis is already saved'),
+          backgroundColor: Colors.green,
+        ),
+      );
+    }
     setState(() {
       _isSaving = true;
     });
@@ -54,7 +64,6 @@ class _OffTheBlockResultsPageState extends State<OffTheBlockResultsPage> {
 
     final userRepository = context.read<UserRepository>();
     final analysisRepository = context.read<AnalyzesRepository>();
-    final scaffoldMessenger = ScaffoldMessenger.of(context);
     final navigator = Navigator.of(context);
 
     try {

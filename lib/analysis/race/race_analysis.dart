@@ -15,7 +15,8 @@ import '../time_line_painter.dart';
 import 'analysis_level.dart';
 
 class RaceAnalysisView extends StatefulWidget {
-  const RaceAnalysisView({super.key});
+  final AppUser appUser;
+  const RaceAnalysisView({super.key, required this.appUser});
 
   @override
   State<RaceAnalysisView> createState() => _RaceAnalysisViewState();
@@ -253,6 +254,7 @@ class _RaceAnalysisViewState extends State<RaceAnalysisView> {
             controller: _controller!,
             event: _currentEvent!,
             onStateChanged: _onChildStateChanged, // FIX: Pass the callback down
+            appUser: widget.appUser,
           );
         case AnalysisType.quick:
           return _QuickAnalysisUI(
@@ -260,6 +262,7 @@ class _RaceAnalysisViewState extends State<RaceAnalysisView> {
             controller: _controller!,
             event: _currentEvent!,
             onStateChanged: _onChildStateChanged, // FIX: Pass the callback down
+            appUser: widget.appUser,
           );
         default:
           return _buildInitialPrompt();
@@ -598,6 +601,7 @@ abstract class _AnalysisUIBaseState<T extends StatefulWidget> extends State<T> {
 class _FullAnalysisUI extends StatefulWidget {
   final VideoPlayerController controller;
   final Event event;
+  final AppUser appUser;
 
   // FIX: Add the callback property
   final VoidCallback onStateChanged;
@@ -607,6 +611,7 @@ class _FullAnalysisUI extends StatefulWidget {
     required this.controller,
     required this.event,
     required this.onStateChanged, // FIX: Make it required
+    required this.appUser,
   });
 
   @override
@@ -673,6 +678,7 @@ class _FullAnalysisUIState extends _AnalysisUIBaseState<_FullAnalysisUI> {
           intervalAttributes: _intervalAttributes,
           event: widget.event,
           analysisType: AnalysisType.full,
+          appUser: widget.appUser
         ),
       ),
     );
@@ -915,6 +921,7 @@ class _FullAnalysisUIState extends _AnalysisUIBaseState<_FullAnalysisUI> {
 class _QuickAnalysisUI extends StatefulWidget {
   final VideoPlayerController controller;
   final Event event;
+  final AppUser appUser;
 
   // FIX: Add the callback property
   final VoidCallback onStateChanged;
@@ -923,7 +930,7 @@ class _QuickAnalysisUI extends StatefulWidget {
     super.key,
     required this.controller,
     required this.event,
-    required this.onStateChanged, // FIX: Make it required
+    required this.onStateChanged, required this.appUser, // FIX: Make it required
   });
 
   @override
@@ -975,6 +982,7 @@ class _QuickAnalysisUIState extends _AnalysisUIBaseState<_QuickAnalysisUI> {
           intervalAttributes: _lapAttributes,
           event: widget.event,
           analysisType: AnalysisType.quick,
+          appUser: widget.appUser,
         ),
       ),
     );

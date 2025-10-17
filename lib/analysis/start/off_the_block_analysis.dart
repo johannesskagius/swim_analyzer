@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:swim_analyzer/analysis/time_line_painter.dart';
+import 'package:swim_apps_shared/swim_apps_shared.dart';
 import 'package:video_player/video_player.dart';
 
 import 'measurement_painter.dart';
@@ -16,6 +17,7 @@ enum OffTheBlockEvent {
   submergedFully,
   reached5m,
   reached10m,
+  reached15m,
 }
 
 // An extension to provide user-friendly names for the UI.
@@ -34,12 +36,15 @@ extension OffTheBlockEventExtension on OffTheBlockEvent {
         return 'Reached 5m';
       case OffTheBlockEvent.reached10m:
         return 'Reached 10m';
+        case OffTheBlockEvent.reached15m:
+        return 'Reached 15m';
     }
   }
 }
 
 class OffTheBlockAnalysisPage extends StatefulWidget {
-  const OffTheBlockAnalysisPage({super.key});
+  final AppUser appUser;
+  const OffTheBlockAnalysisPage({super.key, required this.appUser});
 
   @override
   State<OffTheBlockAnalysisPage> createState() =>
@@ -94,7 +99,7 @@ class _OffTheBlockAnalysisPageState extends State<OffTheBlockAnalysisPage> {
     // Use tryParse for safe number conversion
     final double? horizontalDistance = double.tryParse(startDistanceText);
 
-    if (startHeight == null || horizontalDistance == null) {
+    if (horizontalDistance == null) {
       return null;
     }
 
@@ -210,20 +215,22 @@ class _OffTheBlockAnalysisPageState extends State<OffTheBlockAnalysisPage> {
     });
   }
 
-  // Future<void> _seekFrames(int frames) async {
-  //   if (_controller == null) return;
-  //   final currentPosition = _controller!.value.position;
-  //
-  //   // Use actual frame rate if available, otherwise default to 30fps
-  //   final frameRate = _controller!.value.frameRate > 0 ? _controller!.value.frameRate : 30;
-  //   final frameDuration = Duration(milliseconds: 1000 ~/ frameRate);
-  //   final newPosition = currentPosition + (frameDuration * frames);
-  //
-  //   await _controller!.seekTo(newPosition);
-  //   if (_controller!.value.isPlaying) {
-  //     await _controller!.pause();
-  //   }
-  // }<<<
+  Future<void> _seekFrames({required bool isForward}) async {
+    if (_controller == null) return;
+
+    final currentPosition = _controller!.value.position;
+
+    // Assume 30 FPS if not known
+    const frameRate = 30.0;
+    final frameDuration = Duration(milliseconds: (1000 / frameRate).round());
+    final int frames = 1;
+    final newPosition = currentPosition + frameDuration * frames;
+
+    await _controller!.seekTo(newPosition);
+    if (_controller!.value.isPlaying) {
+      await _controller!.pause();
+    }
+  }
 
   void _calculateResults() {
     // Call the new physics calculation method
@@ -236,6 +243,7 @@ class _OffTheBlockAnalysisPageState extends State<OffTheBlockAnalysisPage> {
           startDistance: _startDistanceController.text,
           startHeight: startHeight,
           jumpData: jumpData, // Pass the new data to the results page
+          appUser: widget.appUser,
         ),
       ),
     );
@@ -477,6 +485,10 @@ class _OffTheBlockAnalysisPageState extends State<OffTheBlockAnalysisPage> {
 
     return Row(
       children: [
+        IconButton(
+          icon: const Icon(Icons.add),
+          onPressed: () => _seekFrames(isForward: false),
+        ),
         Expanded(
           child: NotificationListener<ScrollNotification>(
             onNotification: (notification) {
@@ -522,7 +534,7 @@ class _OffTheBlockAnalysisPageState extends State<OffTheBlockAnalysisPage> {
         ),
         IconButton(
             icon: const Icon(Icons.add),
-            onPressed: () => print('yet') //_seekFrames(1),
+            onPressed: () => _seekFrames(isForward: true),
             ),
       ],
     );

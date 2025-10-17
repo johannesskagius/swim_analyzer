@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:swim_analyzer/analysis/start/start_analyses_types.dart';
+import 'package:swim_apps_shared/src/objects/user.dart';
 
 class StartAnalysis extends StatelessWidget {
-  const StartAnalysis({super.key});
+  final AppUser appUser;
+  const StartAnalysis({super.key, required this.appUser});
 
   @override
   Widget build(BuildContext context) {
@@ -27,7 +29,7 @@ class StartAnalysis extends StatelessWidget {
               // Use a semi-transparent color for unimplemented features to give a visual cue.
               color: startAnalysis.isImplemented
                   ? null
-                  : theme.cardColor.withOpacity(0.5),
+                  : theme.cardColor.withAlpha(50),
               child: InkWell(
                 borderRadius: BorderRadius.circular(16),
                 onTap: () {
@@ -35,7 +37,7 @@ class StartAnalysis extends StatelessWidget {
                     // If the type is implemented, navigate to its page.
                     Navigator.of(context).push(
                       MaterialPageRoute(
-                        builder: (ctx) => startAnalysis.page,
+                        builder: (ctx) => startAnalysis.page(appUser),
                       ),
                     );
                   } else {

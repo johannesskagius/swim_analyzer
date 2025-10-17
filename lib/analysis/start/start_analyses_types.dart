@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:swim_analyzer/analysis/start/off_the_block_analysis.dart';
+import 'package:swim_apps_shared/swim_apps_shared.dart';
 
 enum StartAnalyzes {
   offTheBlock,
@@ -45,18 +46,18 @@ extension StartAnalyzesMetadata on StartAnalyzes {
   /// A flag indicating whether the analysis type is implemented and ready for use.
   bool get isImplemented => this == StartAnalyzes.offTheBlock;
 
-  /// The widget corresponding to the analysis page.
+  /// Returns the widget corresponding to the analysis page for the given user.
   ///
   /// Throws an [UnimplementedError] if `isImplemented` is false to prevent
   /// navigation to incomplete features.
-  Widget get page {
+  Widget page(AppUser appUser) {
     if (!isImplemented) {
       throw UnimplementedError(
           '$displayName analysis page is not implemented yet.');
     }
     switch (this) {
       case StartAnalyzes.offTheBlock:
-        return const OffTheBlockAnalysisPage();
+        return OffTheBlockAnalysisPage(appUser: appUser);
       // The if check above handles the other cases.
       default:
         // This should not be reachable if `isImplemented` is checked first.

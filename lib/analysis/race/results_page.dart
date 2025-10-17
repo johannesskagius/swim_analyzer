@@ -17,6 +17,7 @@ class RaceResultsView extends StatefulWidget {
 
   // This tells the view how to interpret the data.
   final AnalysisType analysisType;
+  final AppUser appUser;
 
   const RaceResultsView({
     super.key,
@@ -24,6 +25,7 @@ class RaceResultsView extends StatefulWidget {
     required this.event,
     required this.analysisType,
     this.intervalAttributes,
+    required this.appUser,
   });
 
   @override

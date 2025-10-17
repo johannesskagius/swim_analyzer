@@ -1,29 +1,38 @@
 import 'package:flutter/material.dart';
+import 'package:swim_analyzer/history/pick_race_history_page.dart';
 import 'package:swim_analyzer/settings_page.dart';
-import 'package:swim_apps_shared/swim_apps_shared.dart';
+import 'package:swim_apps_shared/src/objects/user.dart';
 
 import 'analysis/pick_analysis.dart';
 
 class HomePage extends StatefulWidget {
-  const HomePage({super.key});
+  final AppUser appUser;
+  const HomePage({super.key, required this.appUser});
 
   @override
   State<HomePage> createState() => _HomePageState();
 }
 
 class _HomePageState extends State<HomePage> {
+  late final AppUser appUser;
   int _selectedIndex = 0;
 
-  static const List<Widget> _widgetOptions = <Widget>[
-    PickAnalysis(),
-    RaceHistoryPage(brandIconAssetPath: 'assets/icon/icon.png'),
-    SettingsPage(),
-  ];
+  late List<Widget> _widgetOptions;
 
   void _onItemTapped(int index) {
     setState(() {
       _selectedIndex = index;
     });
+  }
+  @override
+  void initState() {
+    appUser = widget.appUser;
+    _widgetOptions = <Widget>[
+      PickAnalysis(appUser: appUser),
+      PickRaceHistoryPage(appUser: appUser),
+      SettingsPage(appUser: appUser),
+    ];
+    super.initState();
   }
 
   @override
@@ -42,8 +51,8 @@ class _HomePageState extends State<HomePage> {
             label: 'Analyze',
           ),
           BottomNavigationBarItem(
-            icon: Icon(Icons.emoji_events),
-            label: 'Races',
+            icon: Icon(Icons.history),
+            label: 'History',
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.settings),

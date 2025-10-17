@@ -1,14 +1,15 @@
 import 'package:flutter/material.dart';
-import 'package:swim_analyzer/analysis/race/race_analysis.dart';
 import 'package:swim_analyzer/analysis/analyze_type.dart';
-import 'package:swim_analyzer/analysis/start/start_analyses_types.dart';
+import 'package:swim_analyzer/analysis/race/race_analysis.dart';
 import 'package:swim_analyzer/analysis/start/start_analysis.dart';
+import 'package:swim_apps_shared/src/objects/user.dart';
 
 import 'not_implement_analyses.dart';
-import 'start/off_the_block_analysis.dart';
 
 class PickAnalysis extends StatelessWidget {
-  const PickAnalysis({super.key});
+  final AppUser appUser;
+
+  const PickAnalysis({super.key, required this.appUser});
 
   /// Pushes the corresponding analysis page onto the navigation stack.
   ///
@@ -22,11 +23,11 @@ class PickAnalysis extends StatelessWidget {
 
     switch (a) {
       case AnalyzeType.race:
-      // Assuming your existing AnalysisPage is for races.
-        targetPage = RaceAnalysisView();
+        // Assuming your existing AnalysisPage is for races.
+        targetPage = RaceAnalysisView(appUser: appUser);
         break;
       case AnalyzeType.start:
-        targetPage = const StartAnalysis();
+        targetPage = StartAnalysis(appUser: appUser);
         break;
       case AnalyzeType.stroke:
         targetPage = const StrokeAnalysisPage();
@@ -81,7 +82,7 @@ class PickAnalysis extends StatelessWidget {
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(
                         content:
-                        Text('$typeName analysis is not implemented yet.'),
+                            Text('$typeName analysis is not implemented yet.'),
                         duration: const Duration(seconds: 2),
                         action: SnackBarAction(
                           label: 'OK',
@@ -100,7 +101,10 @@ class PickAnalysis extends StatelessWidget {
                     Icon(
                       getIconForAnalysis(a),
                       size: 64, // Increase icon size for better visibility
-                      color: implementedTypes.contains(a) ? theme.colorScheme.primary:theme.colorScheme.primary.withAlpha(50), // Use theme color
+                      color: implementedTypes.contains(a)
+                          ? theme.colorScheme.primary
+                          : theme.colorScheme.primary
+                              .withAlpha(50), // Use theme color
                     ),
                     const SizedBox(height: 16),
                     Text(

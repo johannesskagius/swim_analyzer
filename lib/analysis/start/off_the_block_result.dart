@@ -11,23 +11,32 @@ class OffTheBlockResultsPage extends StatefulWidget {
   final String? startDistance;
   final double startHeight;
   final Map<String, double>? jumpData;
+  final AppUser appUser;
 
   const OffTheBlockResultsPage(
       {super.key,
       required this.markedTimestamps,
       this.startDistance,
       required this.startHeight,
-      required this.jumpData});
+      required this.jumpData, required this.appUser});
 
   @override
   State<OffTheBlockResultsPage> createState() => _OffTheBlockResultsPageState();
 }
 
 class _OffTheBlockResultsPageState extends State<OffTheBlockResultsPage> {
+  late final AppUser appUser;
   bool _isSaving = false;
 
   // The title controller needs to be created and disposed properly.
   final _titleController = TextEditingController();
+
+
+  @override
+  void initState() {
+    appUser = widget.appUser;
+    super.initState();
+  }
 
   @override
   void dispose() {
@@ -49,18 +58,12 @@ class _OffTheBlockResultsPageState extends State<OffTheBlockResultsPage> {
     final navigator = Navigator.of(context);
 
     try {
-      final user = await userRepository.getMyProfile();
       if (!mounted) return;
-
-      if (user == null) {
-        throw Exception("Could not find user profile. Please log in again.");
-      }
-
       Swimmer? selectedSwimmer;
 
-      if (user.userType == UserType.coach) {
+      if (appUser.userType == UserType.coach) {
         final swimmers =
-            await userRepository.getAllSwimmersFromCoach(coachId: user.id);
+            await userRepository.getAllSwimmersFromCoach(coachId: appUser.id);
         if (!mounted) return;
 
         selectedSwimmer = await showDialog<Swimmer>(
@@ -90,8 +93,8 @@ class _OffTheBlockResultsPageState extends State<OffTheBlockResultsPage> {
             ],
           ),
         );
-      } else if (user is Swimmer) {
-        selectedSwimmer = user;
+      } else if (appUser is Swimmer) {
+        selectedSwimmer = appUser as Swimmer;
       }
 
       if (selectedSwimmer == null) {
@@ -153,7 +156,7 @@ class _OffTheBlockResultsPageState extends State<OffTheBlockResultsPage> {
         startHeight: widget.startHeight,
         jumpData: widget.jumpData,
         clubId: selectedSwimmer.clubId ?? '',
-        coachId: user is Coach ? user.id : selectedSwimmer.creatorId ?? '',
+        coachId: appUser is Coach ? appUser.id : selectedSwimmer.creatorId ?? '',
         createdDate: DateTime.now(),
       );
 

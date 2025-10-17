@@ -3,7 +3,9 @@ import 'package:provider/provider.dart';
 import 'package:swim_apps_shared/swim_apps_shared.dart';
 
 class ProfilePage extends StatefulWidget {
-  const ProfilePage({super.key});
+  final AppUser appUser;
+
+  const ProfilePage({super.key, required this.appUser});
 
   @override
   State<ProfilePage> createState() => _ProfilePageState();
@@ -13,6 +15,7 @@ class ProfilePage extends StatefulWidget {
 class _PersonalBest {
   final String eventName;
   final Duration time;
+
   _PersonalBest(this.eventName, this.time);
 }
 
@@ -54,10 +57,9 @@ class _ProfilePageState extends State<ProfilePage> {
   }
 
   Future<void> _loadUserData() async {
-    final userRepo = Provider.of<UserRepository>(context, listen: false);
     try {
-      final user = await userRepo.getMyProfile();
-      if (user != null && mounted) {
+      final user = widget.appUser;
+      if (mounted) {
         setState(() {
           _user = user;
           _nameController.text = user.name;
@@ -154,7 +156,9 @@ class _ProfilePageState extends State<ProfilePage> {
           _isEditMode = false;
         });
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Profile updated successfully!'), backgroundColor: Colors.green),
+          const SnackBar(
+              content: Text('Profile updated successfully!'),
+              backgroundColor: Colors.green),
         );
       }
     } catch (e) {
@@ -187,18 +191,30 @@ class _ProfilePageState extends State<ProfilePage> {
       return [
         const Padding(
           padding: EdgeInsets.all(16.0),
-          child: SizedBox(width: 24, height: 24, child: CircularProgressIndicator(color: Colors.white)),
+          child: SizedBox(
+              width: 24,
+              height: 24,
+              child: CircularProgressIndicator(color: Colors.white)),
         ),
       ];
     }
     if (_isEditMode) {
       return [
-        IconButton(icon: const Icon(Icons.close), tooltip: 'Cancel', onPressed: _cancelEdit),
-        IconButton(icon: const Icon(Icons.check), tooltip: 'Save', onPressed: _saveProfile),
+        IconButton(
+            icon: const Icon(Icons.close),
+            tooltip: 'Cancel',
+            onPressed: _cancelEdit),
+        IconButton(
+            icon: const Icon(Icons.check),
+            tooltip: 'Save',
+            onPressed: _saveProfile),
       ];
     } else {
       return [
-        IconButton(icon: const Icon(Icons.edit), tooltip: 'Edit Profile', onPressed: _enterEditMode),
+        IconButton(
+            icon: const Icon(Icons.edit),
+            tooltip: 'Edit Profile',
+            onPressed: _enterEditMode),
       ];
     }
   }
@@ -209,7 +225,9 @@ class _ProfilePageState extends State<ProfilePage> {
       return Center(
         child: Padding(
           padding: const EdgeInsets.all(16.0),
-          child: Text(_initialError, style: TextStyle(color: Theme.of(context).colorScheme.error), textAlign: TextAlign.center),
+          child: Text(_initialError,
+              style: TextStyle(color: Theme.of(context).colorScheme.error),
+              textAlign: TextAlign.center),
         ),
       );
     }
@@ -228,18 +246,30 @@ class _ProfilePageState extends State<ProfilePage> {
             Center(
               child: Chip(
                 avatar: Icon(
-                  _user!.userType == UserType.coach ? Icons.admin_panel_settings_outlined : Icons.pool,
+                  _user!.userType == UserType.coach
+                      ? Icons.admin_panel_settings_outlined
+                      : Icons.pool,
                   color: Theme.of(context).primaryColor,
                 ),
-                label: Text(_userRole, style: const TextStyle(fontWeight: FontWeight.bold)),
+                label: Text(_userRole,
+                    style: const TextStyle(fontWeight: FontWeight.bold)),
               ),
             ),
           const SizedBox(height: 24),
-          _buildProfileInfoTile(icon: Icons.person_outline, label: 'First Name', value: _user?.name ?? 'N/A'),
+          _buildProfileInfoTile(
+              icon: Icons.person_outline,
+              label: 'First Name',
+              value: _user?.name ?? 'N/A'),
           const SizedBox(height: 16),
-          _buildProfileInfoTile(icon: Icons.person_outline, label: 'Last Name', value: _user?.lastName ?? 'N/A'),
+          _buildProfileInfoTile(
+              icon: Icons.person_outline,
+              label: 'Last Name',
+              value: _user?.lastName ?? 'N/A'),
           const SizedBox(height: 16),
-          _buildProfileInfoTile(icon: Icons.email_outlined, label: 'Email', value: _user?.email ?? 'N/A'),
+          _buildProfileInfoTile(
+              icon: Icons.email_outlined,
+              label: 'Email',
+              value: _user?.email ?? 'N/A'),
 
           // --- SECTION FOR SWIMMER PERSONAL BESTS ---
           // if (_user is Swimmer) ...[
@@ -285,12 +315,14 @@ class _ProfilePageState extends State<ProfilePage> {
     );
   }
 
-  Widget _buildProfileInfoTile({required IconData icon, required String label, required String value}) {
+  Widget _buildProfileInfoTile(
+      {required IconData icon, required String label, required String value}) {
     return Card(
       child: ListTile(
         leading: Icon(icon, color: Theme.of(context).primaryColor),
         title: Text(label),
-        subtitle: Text(value, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+        subtitle: Text(value,
+            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
       ),
     );
   }
@@ -307,21 +339,35 @@ class _ProfilePageState extends State<ProfilePage> {
             const SizedBox(height: 32),
             TextFormField(
               controller: _nameController,
-              decoration: const InputDecoration(labelText: 'First Name', border: OutlineInputBorder(), prefixIcon: Icon(Icons.person_outline)),
-              validator: (value) => (value?.trim().isEmpty ?? true) ? 'Please enter your first name' : null,
+              decoration: const InputDecoration(
+                  labelText: 'First Name',
+                  border: OutlineInputBorder(),
+                  prefixIcon: Icon(Icons.person_outline)),
+              validator: (value) => (value?.trim().isEmpty ?? true)
+                  ? 'Please enter your first name'
+                  : null,
             ),
             const SizedBox(height: 16),
             TextFormField(
               controller: _lastNameController,
-              decoration: const InputDecoration(labelText: 'Last Name', border: OutlineInputBorder(), prefixIcon: Icon(Icons.person_outline)),
-              validator: (value) => (value?.trim().isEmpty ?? true) ? 'Please enter your last name' : null,
+              decoration: const InputDecoration(
+                  labelText: 'Last Name',
+                  border: OutlineInputBorder(),
+                  prefixIcon: Icon(Icons.person_outline)),
+              validator: (value) => (value?.trim().isEmpty ?? true)
+                  ? 'Please enter your last name'
+                  : null,
             ),
             const SizedBox(height: 24),
             TextFormField(
               initialValue: _user?.email,
               readOnly: true,
               decoration: const InputDecoration(
-                  labelText: 'Email', border: OutlineInputBorder(), prefixIcon: Icon(Icons.email_outlined), fillColor: Colors.black12, filled: true),
+                  labelText: 'Email',
+                  border: OutlineInputBorder(),
+                  prefixIcon: Icon(Icons.email_outlined),
+                  fillColor: Colors.black12,
+                  filled: true),
             ),
           ],
         ),

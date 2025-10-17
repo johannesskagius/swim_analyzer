@@ -703,7 +703,13 @@ class _FullAnalysisUIState extends _AnalysisUIBaseState<_FullAnalysisUI> {
     return Column(
       children: [
         const Spacer(),
-        buildPrecisionScrubber(),
+        Row(
+          children: [
+            IconButton(onPressed: ()=>seekFrames(isForward: false, controller: controller), icon: Icon(Icons.arrow_back_outlined)),
+            Expanded(child: buildPrecisionScrubber()),
+            IconButton(onPressed: ()=>seekFrames(isForward: true, controller: controller), icon: Icon(Icons.arrow_forward_outlined)),
+          ],
+        ),
         Container(
           color: Colors.black.withAlpha(40),
           padding: const EdgeInsets.symmetric(vertical: 12.0),
@@ -1035,7 +1041,13 @@ class _QuickAnalysisUIState extends _AnalysisUIBaseState<_QuickAnalysisUI> {
     return Column(
       children: [
         const Spacer(),
-        buildPrecisionScrubber(),
+        Row(
+          children: [
+            IconButton(onPressed: ()=>seekFrames(isForward: false, controller: controller), icon: Icon(Icons.arrow_back_outlined)),
+            Expanded(child: buildPrecisionScrubber()),
+            IconButton(onPressed: ()=>seekFrames(isForward: true,controller: controller), icon: Icon(Icons.arrow_forward_outlined)),
+          ],
+        ),
         Container(
           color: Colors.black.withAlpha(40),
           padding: const EdgeInsets.symmetric(vertical: 12.0),
@@ -1303,5 +1315,20 @@ class _QuickAnalysisUIState extends _AnalysisUIBaseState<_QuickAnalysisUI> {
         ),
       ],
     );
+  }
+}
+
+Future<void> seekFrames({required bool isForward, required VideoPlayerController controller}) async {
+  final currentPosition = controller.value.position;
+
+  // Assume 30 FPS if not known
+  const frameRate = 30.0;
+  final frameDuration = Duration(milliseconds: (1000 / frameRate).round());
+  final int frames = isForward ? 1 : -1;
+  final newPosition = currentPosition + frameDuration * frames;
+
+  await controller.seekTo(newPosition);
+  if (controller.value.isPlaying) {
+    await controller.pause();
   }
 }

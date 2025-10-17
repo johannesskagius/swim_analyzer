@@ -36,7 +36,7 @@ extension OffTheBlockEventExtension on OffTheBlockEvent {
         return 'Reached 5m';
       case OffTheBlockEvent.reached10m:
         return 'Reached 10m';
-        case OffTheBlockEvent.reached15m:
+      case OffTheBlockEvent.reached15m:
         return 'Reached 15m';
     }
   }
@@ -44,6 +44,7 @@ extension OffTheBlockEventExtension on OffTheBlockEvent {
 
 class OffTheBlockAnalysisPage extends StatefulWidget {
   final AppUser appUser;
+
   const OffTheBlockAnalysisPage({super.key, required this.appUser});
 
   @override
@@ -105,7 +106,8 @@ class _OffTheBlockAnalysisPageState extends State<OffTheBlockAnalysisPage> {
 
     // Calculate flight time in seconds
     final flightTime =
-        (touchedWaterTime.inMilliseconds - leftBlockTime.inMilliseconds) / 1000.0;
+        (touchedWaterTime.inMilliseconds - leftBlockTime.inMilliseconds) /
+            1000.0;
 
     // Flight time must be positive
     if (flightTime <= 0) {
@@ -132,7 +134,8 @@ class _OffTheBlockAnalysisPageState extends State<OffTheBlockAnalysisPage> {
 
     // Final vertical velocity at water entry.
     // Vf = Vi + a*t
-    final double finalVerticalVelocity = initialVerticalVelocity - (g * flightTime);
+    final double finalVerticalVelocity =
+        initialVerticalVelocity - (g * flightTime);
 
     // 3. --- RETURN RESULTS ---
     return {
@@ -223,7 +226,7 @@ class _OffTheBlockAnalysisPageState extends State<OffTheBlockAnalysisPage> {
     // Assume 30 FPS if not known
     const frameRate = 30.0;
     final frameDuration = Duration(milliseconds: (1000 / frameRate).round());
-    final int frames = 1;
+    final int frames = isForward ? 1 : -1;
     final newPosition = currentPosition + frameDuration * frames;
 
     await _controller!.seekTo(newPosition);
@@ -242,7 +245,8 @@ class _OffTheBlockAnalysisPageState extends State<OffTheBlockAnalysisPage> {
           markedTimestamps: _markedTimestamps,
           startDistance: _startDistanceController.text,
           startHeight: startHeight,
-          jumpData: jumpData, // Pass the new data to the results page
+          jumpData: jumpData,
+          // Pass the new data to the results page
           appUser: widget.appUser,
         ),
       ),
@@ -533,9 +537,9 @@ class _OffTheBlockAnalysisPageState extends State<OffTheBlockAnalysisPage> {
           ),
         ),
         IconButton(
-            icon: const Icon(Icons.add),
-            onPressed: () => _seekFrames(isForward: true),
-            ),
+          icon: const Icon(Icons.add),
+          onPressed: () => _seekFrames(isForward: true),
+        ),
       ],
     );
   }

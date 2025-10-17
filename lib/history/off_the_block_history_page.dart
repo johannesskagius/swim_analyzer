@@ -1,10 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
-import 'package:swim_analyzer/analysis/start/off_the_block_result.dart';
+import 'package:swim_analyzer/history/compare_starts_page.dart';
 import 'package:swim_apps_shared/swim_apps_shared.dart';
-
-import '../analysis/start/off_the_block_analysis.dart';
 
 class OffTheBlockHistoryPage extends StatefulWidget {
   final AppUser appUser;
@@ -19,6 +17,7 @@ class _OffTheBlockHistoryPageState extends State<OffTheBlockHistoryPage> {
   late final Stream<List<OffTheBlockAnalysisData>> _analysesStream;
   Map<String, AppUser> _swimmers = {};
   bool _isLoadingSwimmers = false;
+  final List<String> _selectedAnalysisIds = [];
 
   @override
   void initState() {
@@ -28,12 +27,12 @@ class _OffTheBlockHistoryPageState extends State<OffTheBlockHistoryPage> {
 
     if (widget.appUser.userType == UserType.coach &&
         widget.appUser.clubId != null) {
-      _analysesStream =
-          analysisRepository.getStreamOfOffTheBlockAnalysesForClub(widget.appUser.clubId!);
+      _analysesStream = analysisRepository
+          .getStreamOfOffTheBlockAnalysesForClub(widget.appUser.clubId!);
       _fetchSwimmers(userRepository, widget.appUser.clubId!);
     } else {
-      _analysesStream =
-          analysisRepository.getStreamOfOffTheBlockAnalysesForUser(widget.appUser.id);
+      _analysesStream = analysisRepository
+          .getStreamOfOffTheBlockAnalysesForUser(widget.appUser.id);
     }
   }
 
@@ -50,7 +49,6 @@ class _OffTheBlockHistoryPageState extends State<OffTheBlockHistoryPage> {
         });
       }
     } catch (e) {
-      // Handle error, e.g., show a snackbar
       if (mounted) {
         setState(() {
           _isLoadingSwimmers = false;
@@ -62,10 +60,30 @@ class _OffTheBlockHistoryPageState extends State<OffTheBlockHistoryPage> {
     }
   }
 
+  void _toggleSelection(String analysisId) {
+    setState(() {
+      if (_selectedAnalysisIds.contains(analysisId)) {
+        _selectedAnalysisIds.remove(analysisId);
+      } else {
+        _selectedAnalysisIds.add(analysisId);
+      }
+    });
+  }
+
+  void _navigateToComparison() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => CompareStartsPage(
+          appUser: widget.appUser,
+          analysisIds: _selectedAnalysisIds,
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    final analysisRepository = context.read<AnalyzesRepository>();
-
     return Scaffold(
       appBar: AppBar(
         title: const Text('Start Analysis History'),
@@ -100,6 +118,7 @@ class _OffTheBlockHistoryPageState extends State<OffTheBlockHistoryPage> {
             itemCount: analyses.length,
             itemBuilder: (context, index) {
               final analysis = analyses[index];
+              final isSelected = _selectedAnalysisIds.contains(analysis.id);
               String subtitle;
               if (widget.appUser.userType == UserType.coach) {
                 final swimmerName =
@@ -114,91 +133,44 @@ class _OffTheBlockHistoryPageState extends State<OffTheBlockHistoryPage> {
               return Card(
                 margin:
                     const EdgeInsets.symmetric(horizontal: 8.0, vertical: 4.0),
-                child: Dismissible(
-                  key: Key(analysis.id),
-                  direction: DismissDirection.endToStart,
-                  background: Container(
-                    color: Colors.red,
-                    alignment: Alignment.centerRight,
-                    padding: const EdgeInsets.symmetric(horizontal: 20.0),
-                    child: const Icon(Icons.delete, color: Colors.white),
+                elevation: 1,
+                shape: RoundedRectangleBorder(
+                  side: BorderSide(
+                    color: isSelected
+                        ? Theme.of(context).primaryColor
+                        : Colors.transparent,
+                    width: 1.5,
                   ),
-                  confirmDismiss: (direction) async {
-                    return await showDialog(
-                      context: context,
-                      builder: (BuildContext context) {
-                        return AlertDialog(
-                          title: const Text('Confirm Deletion'),
-                          content: const Text(
-                              'Are you sure you want to delete this analysis?'),
-                          actions: <Widget>[
-                            TextButton(
-                              onPressed: () => Navigator.of(context).pop(false),
-                              child: const Text('Cancel'),
-                            ),
-                            TextButton(
-                              onPressed: () => Navigator.of(context).pop(true),
-                              child: const Text('Delete'),
-                            ),
-                          ],
-                        );
-                      },
-                    );
-                  },
-                  onDismissed: (direction) {
-                    analysisRepository.deleteOffTheBlockAnalysis(analysis.id);
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('${analysis.title} deleted')),
-                    );
-                  },
-                  child: ListTile(
-                    leading: const Icon(Icons.start, color: Colors.blueAccent),
-                    title: Text(analysis.title),
-                    subtitle: Text(subtitle),
-                    trailing: const Icon(Icons.arrow_forward_ios),
-                    onTap: () {
-                      final Map<OffTheBlockEvent, Duration> timestamps =
-                          analysis.markedTimestamps.map((key, value) {
-                        final event = OffTheBlockEvent.values
-                            .firstWhere((e) => e.name == key);
-                        return MapEntry(event, Duration(milliseconds: value));
-                      });
-
-                      AppUser targetUser = widget.appUser;
-                      if (widget.appUser.userType == UserType.coach) {
-                        if (_swimmers.containsKey(analysis.swimmerId)) {
-                          targetUser = _swimmers[analysis.swimmerId]!;
-                        } else {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                                content: Text(
-                                    'Cannot open analysis: Swimmer not found.')),
-                          );
-                          return;
-                        }
-                      }
-
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => OffTheBlockResultsPage(
-                              markedTimestamps: timestamps,
-                              id: analysis.id,
-                              startDistance:
-                                  analysis.startDistance.toStringAsFixed(2),
-                              startHeight: analysis.startHeight,
-                              jumpData: analysis.jumpData,
-                              appUser: targetUser),
-                        ),
-                      );
-                    },
-                  ),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: ListTile(
+                  onTap: () => _toggleSelection(analysis.id),
+                  tileColor:
+                      isSelected ? Theme.of(context).primaryColor.withAlpha(15) : null,
+                  leading: const Icon(Icons.start, color: Colors.blueAccent),
+                  title: Text(analysis.title),
+                  subtitle: Text(subtitle),
+                  trailing: isSelected
+                      ? Icon(Icons.check_circle,
+                          color: Theme.of(context).primaryColor)
+                      : const Icon(Icons.circle_outlined),
                 ),
               );
             },
           );
         },
       ),
+      floatingActionButton: _selectedAnalysisIds.isNotEmpty
+          ? FloatingActionButton.extended(
+              heroTag: 'off_the_block_history_fab',
+              onPressed: _navigateToComparison,
+              label: Text(
+                  _selectedAnalysisIds.length == 1 ? 'View' : 'Compare'),
+              icon: Icon(_selectedAnalysisIds.length == 1
+                  ? Icons.visibility
+                  : Icons.compare_arrows),
+            )
+          : null,
     );
   }
 }

@@ -1407,6 +1407,9 @@ PODS:
     - FlutterMacOS
   - sign_in_with_apple (0.0.1):
     - Flutter
+  - sqflite_darwin (0.0.4):
+    - Flutter
+    - FlutterMacOS
   - video_player_avfoundation (0.0.1):
     - Flutter
     - FlutterMacOS
@@ -1424,6 +1427,7 @@ DEPENDENCIES:
   - printing (from `.symlinks/plugins/printing/ios`)
   - shared_preferences_foundation (from `.symlinks/plugins/shared_preferences_foundation/darwin`)
   - sign_in_with_apple (from `.symlinks/plugins/sign_in_with_apple/ios`)
+  - sqflite_darwin (from `.symlinks/plugins/sqflite_darwin/darwin`)
   - video_player_avfoundation (from `.symlinks/plugins/video_player_avfoundation/darwin`)
 
 SPEC REPOS:
@@ -1475,6 +1479,8 @@ EXTERNAL SOURCES:
     :path: ".symlinks/plugins/shared_preferences_foundation/darwin"
   sign_in_with_apple:
     :path: ".symlinks/plugins/sign_in_with_apple/ios"
+  sqflite_darwin:
+    :path: ".symlinks/plugins/sqflite_darwin/darwin"
   video_player_avfoundation:
     :path: ".symlinks/plugins/video_player_avfoundation/darwin"
 
@@ -1512,6 +1518,7 @@ SPEC CHECKSUMS:
   RecaptchaInterop: 11e0b637842dfb48308d242afc3f448062325aba
   shared_preferences_foundation: fcdcbc04712aee1108ac7fda236f363274528f78
   sign_in_with_apple: f3bf75217ea4c2c8b91823f225d70230119b8440
+  sqflite_darwin: 5a7236e3b501866c1c9befc6771dfd73ffb8702d
   video_player_avfoundation: 7c6c11d8470e1675df7397027218274b6d2360b3
 
 PODFILE CHECKSUM: 80abefb6731b9c65e3ff7ce72c5db9dc4f52409b

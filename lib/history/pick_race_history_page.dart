@@ -44,7 +44,7 @@ class PickRaceHistoryPage extends StatelessWidget {
                    Navigator.push(
                     context,
                     MaterialPageRoute(
-                      builder: (context) =>OffTheBlockHistoryPage(appUser: appUser),
+                      builder: (context) => OffTheBlockHistoryPage(appUser: appUser),
                     ),
                   );
                 },

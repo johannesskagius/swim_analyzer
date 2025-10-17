@@ -25,6 +25,8 @@ dependencies:
   printing: ^5.12.0
   sign_in_with_apple: ^6.1.1
   crypto: ^3.0.3
+  shimmer: ^3.0.0
+  cached_network_image: ^3.4.1
   #ffmpeg_kit_flutter_new: ^3.1.9
    #Switch to a path dependency for local development
   swim_apps_shared:

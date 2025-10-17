@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import 'package:swim_apps_shared/swim_apps_shared.dart';
 
 import 'off_the_block_analysis.dart';
+import 'off_the_block_enums.dart';
 
 class OffTheBlockResultsPage extends StatefulWidget {
   final Map<OffTheBlockEvent, Duration> markedTimestamps;

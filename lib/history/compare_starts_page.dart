@@ -277,7 +277,7 @@ class _CompareStartsPageState extends State<CompareStartsPage> {
                   final metricDef = rowEntry.value;
 
                   final rowColor = rowIndex.isEven
-                      ? theme.colorScheme.onSurface.withOpacity(0.04)
+                      ? theme.colorScheme.onSurface.withAlpha(4)
                       : null;
 
                   if (metricDef is String) {
@@ -299,7 +299,7 @@ class _CompareStartsPageState extends State<CompareStartsPage> {
                           return DataCell(
                             Container(
                               color: isBest
-                                  ? theme.colorScheme.primary.withOpacity(0.2)
+                                  ? theme.colorScheme.primary.withAlpha(20)
                                   : null,
                               child: Center(
                                 child: Text(
@@ -334,7 +334,7 @@ class _CompareStartsPageState extends State<CompareStartsPage> {
                     final bestVelocityIndex = bestValueIndices[velocityMetric];
 
                     return DataRow(
-                      color: MaterialStateProperty.all(rowColor),
+                      color: WidgetStateProperty.all(rowColor),
                       cells: [
                         DataCell(Text(title,
                             style:

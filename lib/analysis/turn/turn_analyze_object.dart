@@ -1,5 +1,4 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:swim_analyzer/analysis/turn/turn_analysis_page.dart';
 import 'package:swim_analyzer/analysis/turn/turn_event.dart';
 
 /// Represents a single analyzed turn, including timestamps and calculated metrics.
@@ -30,7 +29,8 @@ class TurnAnalyzeObject {
   });
 
   /// Factory to compute metrics from raw timestamps.
-  factory TurnAnalyzeObject.fromTimestamps(Map<TurnEvent, Duration> timestamps) {
+  factory TurnAnalyzeObject.fromTimestamps(
+      Map<TurnEvent, Duration> timestamps) {
     Duration? _delta(TurnEvent start, TurnEvent end) {
       final t1 = timestamps[start];
       final t2 = timestamps[end];
@@ -39,7 +39,7 @@ class TurnAnalyzeObject {
     }
 
     final wallToFeet =
-    _delta(TurnEvent.wallContactOrFlipStart, TurnEvent.feetLeaveWall);
+        _delta(TurnEvent.wallContactOrFlipStart, TurnEvent.feetLeaveWall);
     final to5m = _delta(TurnEvent.feetLeaveWall, TurnEvent.breakout5m);
     final to10m = _delta(TurnEvent.feetLeaveWall, TurnEvent.breakout10m);
     final to15m = _delta(TurnEvent.feetLeaveWall, TurnEvent.breakout15m);
@@ -66,7 +66,8 @@ class TurnAnalyzeObject {
   /// Converts to a serializable map for Firestore or JSON.
   Map<String, dynamic> toJson() {
     return {
-      'timestamps': markedTimestamps.map((k, v) => MapEntry(k.name, v.inMilliseconds)),
+      'timestamps':
+          markedTimestamps.map((k, v) => MapEntry(k.name, v.inMilliseconds)),
       'wallToFeet_ms': wallToFeet?.inMilliseconds,
       'to5m_ms': to5m?.inMilliseconds,
       'to10m_ms': to10m?.inMilliseconds,
@@ -83,18 +84,20 @@ class TurnAnalyzeObject {
   factory TurnAnalyzeObject.fromJson(Map<String, dynamic> json) {
     Duration? _msToDuration(dynamic value) {
       if (value == null) return null;
-      return Duration(milliseconds: value is int ? value : int.tryParse(value.toString()) ?? 0);
+      return Duration(
+          milliseconds:
+              value is int ? value : int.tryParse(value.toString()) ?? 0);
     }
 
-    final rawTimestamps = (json['timestamps'] as Map<String, dynamic>?)
-        ?.map((k, v) => MapEntry(
-      TurnEvent.values.firstWhere(
-            (e) => e.name == k,
-        orElse: () => TurnEvent.approach5m,
-      ),
-      Duration(milliseconds: v as int),
-    )) ??
-        {};
+    final rawTimestamps =
+        (json['timestamps'] as Map<String, dynamic>?)?.map((k, v) => MapEntry(
+                  TurnEvent.values.firstWhere(
+                    (e) => e.name == k,
+                    orElse: () => TurnEvent.approach5m,
+                  ),
+                  Duration(milliseconds: v as int),
+                )) ??
+            {};
 
     return TurnAnalyzeObject(
       markedTimestamps: rawTimestamps,

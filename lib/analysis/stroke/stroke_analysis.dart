@@ -1,4 +1,3 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:swim_apps_shared/swim_apps_shared.dart';
 
 /// A class to hold the calculated metrics for a specific segment of the swim.
@@ -127,8 +126,8 @@ class StrokeAnalysis {
 
   Map<String, dynamic> toJson() {
     Map<String, dynamic> data = {
-      'id':id,
-      'title':title,
+      'id': id,
+      'title': title,
       'createdAt': createdAt.toIso8601String(),
       'createdBy': createdById,
       'swimmerId': swimmerId,
@@ -149,7 +148,7 @@ class StrokeAnalysis {
     return StrokeAnalysis(
       id: json['id'] as String,
       title: json['title'] as String,
-      createdAt: DateTime.tryParse(json['createdAt'])??DateTime.now(),
+      createdAt: DateTime.tryParse(json['createdAt']) ?? DateTime.now(),
       swimmerId: json['userId'] as String,
       createdById: json['createdBy'] as String,
       stroke: Stroke.values.byName(json['stroke'] as String),

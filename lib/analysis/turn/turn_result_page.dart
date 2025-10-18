@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:swim_analyzer/analysis/turn/turn_event.dart';
 import 'package:swim_apps_shared/swim_apps_shared.dart';
-import 'turn_analysis_page.dart';
 
 class TurnResultPage extends StatelessWidget {
   final AppUser appUser;
@@ -29,22 +28,25 @@ class TurnResultPage extends StatelessWidget {
 
     // --- CALCULATIONS ---
     final Duration? totalUnderwaterTime =
-    _delta(TurnEvent.feetLeaveWall, TurnEvent.breakout15m);
+        _delta(TurnEvent.feetLeaveWall, TurnEvent.breakout15m);
     final Duration? to5m =
-    _delta(TurnEvent.feetLeaveWall, TurnEvent.breakout5m);
+        _delta(TurnEvent.feetLeaveWall, TurnEvent.breakout5m);
     final Duration? to10m =
-    _delta(TurnEvent.feetLeaveWall, TurnEvent.breakout10m);
+        _delta(TurnEvent.feetLeaveWall, TurnEvent.breakout10m);
     final Duration? to15m =
-    _delta(TurnEvent.feetLeaveWall, TurnEvent.breakout15m);
+        _delta(TurnEvent.feetLeaveWall, TurnEvent.breakout15m);
     final Duration? wallToFeet =
-    _delta(TurnEvent.wallContactOrFlipStart, TurnEvent.feetLeaveWall);
+        _delta(TurnEvent.wallContactOrFlipStart, TurnEvent.feetLeaveWall);
 
-    final avgSpeed5m =
-    (to5m != null && to5m.inMilliseconds > 0) ? 5 / (to5m.inMilliseconds / 1000) : null;
-    final avgSpeed10m =
-    (to10m != null && to10m.inMilliseconds > 0) ? 10 / (to10m.inMilliseconds / 1000) : null;
-    final avgSpeed15m =
-    (to15m != null && to15m.inMilliseconds > 0) ? 15 / (to15m.inMilliseconds / 1000) : null;
+    final avgSpeed5m = (to5m != null && to5m.inMilliseconds > 0)
+        ? 5 / (to5m.inMilliseconds / 1000)
+        : null;
+    final avgSpeed10m = (to10m != null && to10m.inMilliseconds > 0)
+        ? 10 / (to10m.inMilliseconds / 1000)
+        : null;
+    final avgSpeed15m = (to15m != null && to15m.inMilliseconds > 0)
+        ? 15 / (to15m.inMilliseconds / 1000)
+        : null;
 
     return Scaffold(
       appBar: AppBar(
@@ -68,7 +70,8 @@ class TurnResultPage extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    _buildRow('Wall contact → Feet leave wall', _formatTime(wallToFeet)),
+                    _buildRow('Wall contact → Feet leave wall',
+                        _formatTime(wallToFeet)),
                     _buildRow('Feet leave wall → 5m', _formatTime(to5m)),
                     _buildRow('Feet leave wall → 10m', _formatTime(to10m)),
                     _buildRow('Feet leave wall → 15m', _formatTime(to15m)),
@@ -79,7 +82,6 @@ class TurnResultPage extends StatelessWidget {
                 ),
               ),
             ),
-
             const SizedBox(height: 24),
             Text(
               'Average Speeds',
@@ -95,14 +97,25 @@ class TurnResultPage extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    _buildRow('0–5m', avgSpeed5m != null ? '${avgSpeed5m.toStringAsFixed(2)} m/s' : '--'),
-                    _buildRow('0–10m', avgSpeed10m != null ? '${avgSpeed10m.toStringAsFixed(2)} m/s' : '--'),
-                    _buildRow('0–15m', avgSpeed15m != null ? '${avgSpeed15m.toStringAsFixed(2)} m/s' : '--'),
+                    _buildRow(
+                        '0–5m',
+                        avgSpeed5m != null
+                            ? '${avgSpeed5m.toStringAsFixed(2)} m/s'
+                            : '--'),
+                    _buildRow(
+                        '0–10m',
+                        avgSpeed10m != null
+                            ? '${avgSpeed10m.toStringAsFixed(2)} m/s'
+                            : '--'),
+                    _buildRow(
+                        '0–15m',
+                        avgSpeed15m != null
+                            ? '${avgSpeed15m.toStringAsFixed(2)} m/s'
+                            : '--'),
                   ],
                 ),
               ),
             ),
-
             const SizedBox(height: 24),
             Text(
               'Marked Events',
@@ -127,7 +140,6 @@ class TurnResultPage extends StatelessWidget {
                 }).toList(),
               ),
             ),
-
             const SizedBox(height: 32),
             ElevatedButton.icon(
               onPressed: () => Navigator.pop(context),

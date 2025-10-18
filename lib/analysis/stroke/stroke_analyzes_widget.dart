@@ -266,7 +266,7 @@ class _StrokeAnalysisPageState extends State<StrokeAnalysisPage> {
             ),
             const SizedBox(height: 24),
             DropdownButtonFormField<Stroke>(
-              value: _selectedStroke,
+              initialValue: _selectedStroke,
               decoration: const InputDecoration(
                 labelText: 'Stroke',
                 border: OutlineInputBorder(),
@@ -285,7 +285,7 @@ class _StrokeAnalysisPageState extends State<StrokeAnalysisPage> {
             ),
             const SizedBox(height: 16),
             DropdownButtonFormField<IntensityZone>(
-              value: _selectedIntensity,
+              initialValue: _selectedIntensity,
               decoration: const InputDecoration(
                 labelText: 'Swim Intensity',
                 border: OutlineInputBorder(),

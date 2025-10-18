@@ -124,10 +124,10 @@ class _StrokeAnalysisResultViewState extends State<StrokeAnalysisResultView> {
                               return const Text('No swimmers found.');
                             }
                             final swimmers = snapshot.data!;
-                            swimmers.removeWhere(
-                                    (appUser) => appUser.userType != UserType.swimmer);
+                            swimmers.removeWhere((appUser) =>
+                                appUser.userType != UserType.swimmer);
                             return DropdownButtonFormField<AppUser>(
-                              value: selectedSwimmer,
+                              initialValue: selectedSwimmer,
                               hint: const Text('Assign to swimmer'),
                               onChanged: (AppUser? newValue) {
                                 setDialogState(() {
@@ -135,12 +135,12 @@ class _StrokeAnalysisResultViewState extends State<StrokeAnalysisResultView> {
                                 });
                               },
                               items: swimmers.map<DropdownMenuItem<AppUser>>(
-                                      (AppUser user) {
-                                    return DropdownMenuItem<AppUser>(
-                                      value: user,
-                                      child: Text(user.name),
-                                    );
-                                  }).toList(),
+                                  (AppUser user) {
+                                return DropdownMenuItem<AppUser>(
+                                  value: user,
+                                  child: Text(user.name),
+                                );
+                              }).toList(),
                               validator: (value) => value == null
                                   ? 'Please select a swimmer'
                                   : null,
@@ -153,58 +153,60 @@ class _StrokeAnalysisResultViewState extends State<StrokeAnalysisResultView> {
               ),
               actions: [
                 TextButton(
-                  onPressed: isSaving ? null : () => Navigator.of(dialogContext).pop(),
+                  onPressed:
+                      isSaving ? null : () => Navigator.of(dialogContext).pop(),
                   child: const Text('Cancel'),
                 ),
                 ElevatedButton(
                   onPressed: isSaving
                       ? null
                       : () async {
-                    if (formKey.currentState!.validate()) {
-                      if (_currentUser.userType == UserType.coach &&
-                          selectedSwimmer == null) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                                content: Text(
-                                    'Please select a swimmer to assign the analysis to.')));
-                        return;
-                      }
-                      setDialogState(() => isSaving = true);
-                      try {
-                        final swimmerId = _currentUser.userType ==
-                            UserType.coach
-                            ? selectedSwimmer!.id
-                            : _currentUser.id;
-                        await _saveAnalysis(
-                          title: titleController.text,
-                          date: selectedDate,
-                          swimmerId: swimmerId,
-                        );
-                        if (mounted) {
-                          Navigator.of(dialogContext).pop(); // Close dialog on success
-                          ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                  content: Text('Analysis Saved!')));
-                        }
-                      } catch (e) {
-                        if (mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                  content: Text(
-                                      'Failed to save analysis: $e')));
-                        }
-                      } finally {
-                        if(mounted) {
-                          setDialogState(() => isSaving = false);
-                        }
-                      }
-                    }
-                  },
+                          if (formKey.currentState!.validate()) {
+                            if (_currentUser.userType == UserType.coach &&
+                                selectedSwimmer == null) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                      content: Text(
+                                          'Please select a swimmer to assign the analysis to.')));
+                              return;
+                            }
+                            setDialogState(() => isSaving = true);
+                            try {
+                              final swimmerId =
+                                  _currentUser.userType == UserType.coach
+                                      ? selectedSwimmer!.id
+                                      : _currentUser.id;
+                              await _saveAnalysis(
+                                title: titleController.text,
+                                date: selectedDate,
+                                swimmerId: swimmerId,
+                              );
+                              if (mounted) {
+                                Navigator.of(dialogContext)
+                                    .pop(); // Close dialog on success
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                        content: Text('Analysis Saved!')));
+                              }
+                            } catch (e) {
+                              if (mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                        content: Text(
+                                            'Failed to save analysis: $e')));
+                              }
+                            } finally {
+                              if (mounted) {
+                                setDialogState(() => isSaving = false);
+                              }
+                            }
+                          }
+                        },
                   child: isSaving
                       ? const SizedBox(
-                      height: 20,
-                      width: 20,
-                      child: CircularProgressIndicator(strokeWidth: 2))
+                          height: 20,
+                          width: 20,
+                          child: CircularProgressIndicator(strokeWidth: 2))
                       : const Text('Save'),
                 ),
               ],
@@ -221,8 +223,10 @@ class _StrokeAnalysisResultViewState extends State<StrokeAnalysisResultView> {
     required String swimmerId,
   }) async {
     // 1. Re-calculate all metrics to ensure data integrity
-    final pushOffTime = widget.markedTimestamps[StrokeEfficiencyEvent.pushOffWall];
-    final breakoutTime = widget.markedTimestamps[StrokeEfficiencyEvent.breakout];
+    final pushOffTime =
+        widget.markedTimestamps[StrokeEfficiencyEvent.pushOffWall];
+    final breakoutTime =
+        widget.markedTimestamps[StrokeEfficiencyEvent.breakout];
     final timeTo15m = widget.markedTimestamps[StrokeEfficiencyEvent.reached15m];
     final timeTo25m = widget.markedTimestamps[StrokeEfficiencyEvent.reached25m];
 
@@ -237,14 +241,20 @@ class _StrokeAnalysisResultViewState extends State<StrokeAnalysisResultView> {
         timeToBreakout = breakoutTime - pushOffTime;
         breakoutDist = avgSpeedTo15m * (timeToBreakout.inMilliseconds / 1000.0);
         if (timeToBreakout.inMilliseconds > 0) {
-          underwaterSpeed = breakoutDist / (timeToBreakout.inMilliseconds / 1000.0);
+          underwaterSpeed =
+              breakoutDist / (timeToBreakout.inMilliseconds / 1000.0);
         }
       }
     }
 
-    final duration0_15 = (timeTo15m != null && pushOffTime != null) ? timeTo15m - pushOffTime : null;
-    final duration15_25 = (timeTo25m != null && timeTo15m != null) ? timeTo25m - timeTo15m : null;
-    final duration0_25 = (timeTo25m != null && pushOffTime != null) ? timeTo25m - pushOffTime : null;
+    final duration0_15 = (timeTo15m != null && pushOffTime != null)
+        ? timeTo15m - pushOffTime
+        : null;
+    final duration15_25 =
+        (timeTo25m != null && timeTo15m != null) ? timeTo25m - timeTo15m : null;
+    final duration0_25 = (timeTo25m != null && pushOffTime != null)
+        ? timeTo25m - pushOffTime
+        : null;
 
     final speed0_15 = _getSegmentSpeed(pushOffTime, timeTo15m, 15.0);
     final speed15_25 = _getSegmentSpeed(timeTo15m, timeTo25m, 10.0);
@@ -256,29 +266,83 @@ class _StrokeAnalysisResultViewState extends State<StrokeAnalysisResultView> {
     final freq0_15 = _calculateFrequency(taps0_15);
     final freq15_25 = _calculateFrequency(taps15_25);
 
-    final isDoubleTap = widget.stroke == Stroke.breaststroke || widget.stroke == Stroke.butterfly;
-    final tapsAfterBreakout0_15 = (breakoutTime != null && timeTo15m != null) ? widget.strokeTimestamps.where((t) => t > breakoutTime && t <= timeTo15m).toList() : <Duration>[];
-    final tapsAfterBreakout15_25 = (timeTo15m != null && timeTo25m != null) ? widget.strokeTimestamps.where((t) => t > timeTo15m && t <= timeTo25m).toList() : <Duration>[];
-    final tapsAfterBreakout0_25 = (breakoutTime != null && timeTo25m != null) ? widget.strokeTimestamps.where((t) => t > breakoutTime && t <= timeTo25m).toList() : <Duration>[];
+    final isDoubleTap = widget.stroke == Stroke.breaststroke ||
+        widget.stroke == Stroke.butterfly;
+    final tapsAfterBreakout0_15 = (breakoutTime != null && timeTo15m != null)
+        ? widget.strokeTimestamps
+            .where((t) => t > breakoutTime && t <= timeTo15m)
+            .toList()
+        : <Duration>[];
+    final tapsAfterBreakout15_25 = (timeTo15m != null && timeTo25m != null)
+        ? widget.strokeTimestamps
+            .where((t) => t > timeTo15m && t <= timeTo25m)
+            .toList()
+        : <Duration>[];
+    final tapsAfterBreakout0_25 = (breakoutTime != null && timeTo25m != null)
+        ? widget.strokeTimestamps
+            .where((t) => t > breakoutTime && t <= timeTo25m)
+            .toList()
+        : <Duration>[];
 
-    final numStrokes0_15 = isDoubleTap ? (tapsAfterBreakout0_15.length / 2).floor() : tapsAfterBreakout0_15.length;
-    final numStrokes15_25 = isDoubleTap ? (tapsAfterBreakout15_25.length / 2).floor() : tapsAfterBreakout15_25.length;
-    final numStrokes0_25 = isDoubleTap ? (tapsAfterBreakout0_25.length / 2).floor() : tapsAfterBreakout0_25.length;
+    final numStrokes0_15 = isDoubleTap
+        ? (tapsAfterBreakout0_15.length / 2).floor()
+        : tapsAfterBreakout0_15.length;
+    final numStrokes15_25 = isDoubleTap
+        ? (tapsAfterBreakout15_25.length / 2).floor()
+        : tapsAfterBreakout15_25.length;
+    final numStrokes0_25 = isDoubleTap
+        ? (tapsAfterBreakout0_25.length / 2).floor()
+        : tapsAfterBreakout0_25.length;
 
-    final strokeLength0_15 = (breakoutDist != null && numStrokes0_15 > 0) ? (15.0 - breakoutDist) / numStrokes0_15 : null;
-    final strokeLength15_25 = (numStrokes15_25 > 0) ? 10.0 / numStrokes15_25 : null;
-    final strokeLength0_25 = (breakoutDist != null && numStrokes0_25 > 0) ? (25.0 - breakoutDist) / numStrokes0_25 : null;
+    final strokeLength0_15 = (breakoutDist != null && numStrokes0_15 > 0)
+        ? (15.0 - breakoutDist) / numStrokes0_15
+        : null;
+    final strokeLength15_25 =
+        (numStrokes15_25 > 0) ? 10.0 / numStrokes15_25 : null;
+    final strokeLength0_25 = (breakoutDist != null && numStrokes0_25 > 0)
+        ? (25.0 - breakoutDist) / numStrokes0_25
+        : null;
 
-    final si0_15 = (speed0_15 != null && strokeLength0_15 != null) ? speed0_15 * strokeLength0_15 : null;
-    final si15_25 = (speed15_25 != null && strokeLength15_25 != null) ? speed15_25 * strokeLength15_25 : null;
-    final si0_25 = (speed0_25 != null && strokeLength0_25 != null) ? speed0_25 * strokeLength0_25 : null;
+    final si0_15 = (speed0_15 != null && strokeLength0_15 != null)
+        ? speed0_15 * strokeLength0_15
+        : null;
+    final si15_25 = (speed15_25 != null && strokeLength15_25 != null)
+        ? speed15_25 * strokeLength15_25
+        : null;
+    final si0_25 = (speed0_25 != null && strokeLength0_25 != null)
+        ? speed0_25 * strokeLength0_25
+        : null;
 
-    final phase1_0_15 = _getAveragePhaseMetricsForSegment(isPhase1: true, segmentStart: pushOffTime, segmentEnd: timeTo15m, segmentSpeed: speed0_15);
-    final phase2_0_15 = _getAveragePhaseMetricsForSegment(isPhase1: false, segmentStart: pushOffTime, segmentEnd: timeTo15m, segmentSpeed: speed0_15);
-    final phase1_15_25 = _getAveragePhaseMetricsForSegment(isPhase1: true, segmentStart: timeTo15m, segmentEnd: timeTo25m, segmentSpeed: speed15_25);
-    final phase2_15_25 = _getAveragePhaseMetricsForSegment(isPhase1: false, segmentStart: timeTo15m, segmentEnd: timeTo25m, segmentSpeed: speed15_25);
-    final phase1_0_25 = _getAveragePhaseMetricsForSegment(isPhase1: true, segmentStart: pushOffTime, segmentEnd: timeTo25m, segmentSpeed: speed0_25);
-    final phase2_0_25 = _getAveragePhaseMetricsForSegment(isPhase1: false, segmentStart: pushOffTime, segmentEnd: timeTo25m, segmentSpeed: speed0_25);
+    final phase1_0_15 = _getAveragePhaseMetricsForSegment(
+        isPhase1: true,
+        segmentStart: pushOffTime,
+        segmentEnd: timeTo15m,
+        segmentSpeed: speed0_15);
+    final phase2_0_15 = _getAveragePhaseMetricsForSegment(
+        isPhase1: false,
+        segmentStart: pushOffTime,
+        segmentEnd: timeTo15m,
+        segmentSpeed: speed0_15);
+    final phase1_15_25 = _getAveragePhaseMetricsForSegment(
+        isPhase1: true,
+        segmentStart: timeTo15m,
+        segmentEnd: timeTo25m,
+        segmentSpeed: speed15_25);
+    final phase2_15_25 = _getAveragePhaseMetricsForSegment(
+        isPhase1: false,
+        segmentStart: timeTo15m,
+        segmentEnd: timeTo25m,
+        segmentSpeed: speed15_25);
+    final phase1_0_25 = _getAveragePhaseMetricsForSegment(
+        isPhase1: true,
+        segmentStart: pushOffTime,
+        segmentEnd: timeTo25m,
+        segmentSpeed: speed0_25);
+    final phase2_0_25 = _getAveragePhaseMetricsForSegment(
+        isPhase1: false,
+        segmentStart: pushOffTime,
+        segmentEnd: timeTo25m,
+        segmentSpeed: speed0_25);
 
     // 2. Construct the data models
     final underwaterMetrics = UnderwaterMetrics(
@@ -328,7 +392,8 @@ class _StrokeAnalysisResultViewState extends State<StrokeAnalysisResultView> {
 
     // 3. Construct the main StrokeAnalysis object
     final newAnalysis = StrokeAnalysis(
-      id: '', // Firestore will generate this
+      id: '',
+      // Firestore will generate this
       title: title,
       createdAt: date,
       swimmerId: swimmerId,
@@ -338,7 +403,7 @@ class _StrokeAnalysisResultViewState extends State<StrokeAnalysisResultView> {
       markedTimestamps: widget.markedTimestamps
           .map((key, value) => MapEntry(key.name, value.inMilliseconds)),
       strokeTimestamps:
-      widget.strokeTimestamps.map((d) => d.inMilliseconds).toList(),
+          widget.strokeTimestamps.map((d) => d.inMilliseconds).toList(),
       strokeFrequency: widget.strokeFrequency,
       underwater: underwaterMetrics,
       segment0_15m: segmentMetrics0_15,
@@ -348,7 +413,7 @@ class _StrokeAnalysisResultViewState extends State<StrokeAnalysisResultView> {
 
     // 4. Get repository and save
     final analyzesRepository =
-    Provider.of<AnalyzesRepository>(context, listen: false);
+        Provider.of<AnalyzesRepository>(context, listen: false);
     //await analyzesRepository.addAnalysis(newAnalysis);
   }
 
@@ -474,11 +539,10 @@ class _StrokeAnalysisResultViewState extends State<StrokeAnalysisResultView> {
 
   Widget _buildUnderwaterCard() {
     final pushOffTime =
-    widget.markedTimestamps[StrokeEfficiencyEvent.pushOffWall];
+        widget.markedTimestamps[StrokeEfficiencyEvent.pushOffWall];
     final breakoutTime =
-    widget.markedTimestamps[StrokeEfficiencyEvent.breakout];
-    final timeTo15m =
-    widget.markedTimestamps[StrokeEfficiencyEvent.reached15m];
+        widget.markedTimestamps[StrokeEfficiencyEvent.breakout];
+    final timeTo15m = widget.markedTimestamps[StrokeEfficiencyEvent.reached15m];
 
     double? breakoutDist;
     double? underwaterSpeed;
@@ -487,11 +551,9 @@ class _StrokeAnalysisResultViewState extends State<StrokeAnalysisResultView> {
     if (pushOffTime != null && breakoutTime != null && timeTo15m != null) {
       final durationTo15m = timeTo15m - pushOffTime;
       if (durationTo15m.inMilliseconds > 0) {
-        final avgSpeedTo15m =
-            15.0 / (durationTo15m.inMilliseconds / 1000.0);
+        final avgSpeedTo15m = 15.0 / (durationTo15m.inMilliseconds / 1000.0);
         timeToBreakout = breakoutTime - pushOffTime;
-        breakoutDist =
-            avgSpeedTo15m * (timeToBreakout.inMilliseconds / 1000.0);
+        breakoutDist = avgSpeedTo15m * (timeToBreakout.inMilliseconds / 1000.0);
         if (timeToBreakout.inMilliseconds > 0) {
           underwaterSpeed =
               breakoutDist / (timeToBreakout.inMilliseconds / 1000.0);
@@ -514,21 +576,18 @@ class _StrokeAnalysisResultViewState extends State<StrokeAnalysisResultView> {
 
   Widget _buildMetricsTable(BuildContext context) {
     final pushOffTime =
-    widget.markedTimestamps[StrokeEfficiencyEvent.pushOffWall];
-    final timeTo15m =
-    widget.markedTimestamps[StrokeEfficiencyEvent.reached15m];
-    final timeTo25m =
-    widget.markedTimestamps[StrokeEfficiencyEvent.reached25m];
+        widget.markedTimestamps[StrokeEfficiencyEvent.pushOffWall];
+    final timeTo15m = widget.markedTimestamps[StrokeEfficiencyEvent.reached15m];
+    final timeTo25m = widget.markedTimestamps[StrokeEfficiencyEvent.reached25m];
     final breakoutTime =
-    widget.markedTimestamps[StrokeEfficiencyEvent.breakout];
+        widget.markedTimestamps[StrokeEfficiencyEvent.breakout];
 
     // --- Breakout Distance Calculation ---
     double? breakoutDist;
     if (pushOffTime != null && breakoutTime != null && timeTo15m != null) {
       final durationTo15m = timeTo15m - pushOffTime;
       if (durationTo15m.inMilliseconds > 0) {
-        final avgSpeedTo15m =
-            15.0 / (durationTo15m.inMilliseconds / 1000.0);
+        final avgSpeedTo15m = 15.0 / (durationTo15m.inMilliseconds / 1000.0);
         final durationToBreakout = breakoutTime - pushOffTime;
         breakoutDist =
             avgSpeedTo15m * (durationToBreakout.inMilliseconds / 1000.0);
@@ -540,9 +599,8 @@ class _StrokeAnalysisResultViewState extends State<StrokeAnalysisResultView> {
     final duration0_15 = (timeTo15m != null && pushOffTime != null)
         ? timeTo15m - pushOffTime
         : null;
-    final duration15_25 = (timeTo25m != null && timeTo15m != null)
-        ? timeTo25m - timeTo15m
-        : null;
+    final duration15_25 =
+        (timeTo25m != null && timeTo15m != null) ? timeTo25m - timeTo15m : null;
     final duration0_25 = (timeTo25m != null && pushOffTime != null)
         ? timeTo25m - pushOffTime
         : null;
@@ -562,22 +620,22 @@ class _StrokeAnalysisResultViewState extends State<StrokeAnalysisResultView> {
     final freq0_25 = widget.strokeFrequency;
 
     // Stroke Length
-    final isDoubleTap =
-        widget.stroke == Stroke.breaststroke || widget.stroke == Stroke.butterfly;
+    final isDoubleTap = widget.stroke == Stroke.breaststroke ||
+        widget.stroke == Stroke.butterfly;
     final tapsAfterBreakout0_15 = (breakoutTime != null && timeTo15m != null)
         ? widget.strokeTimestamps
-        .where((t) => t > breakoutTime && t <= timeTo15m)
-        .toList()
+            .where((t) => t > breakoutTime && t <= timeTo15m)
+            .toList()
         : <Duration>[];
     final tapsAfterBreakout15_25 = (timeTo15m != null && timeTo25m != null)
         ? widget.strokeTimestamps
-        .where((t) => t > timeTo15m && t <= timeTo25m)
-        .toList()
+            .where((t) => t > timeTo15m && t <= timeTo25m)
+            .toList()
         : <Duration>[];
     final tapsAfterBreakout0_25 = (breakoutTime != null && timeTo25m != null)
         ? widget.strokeTimestamps
-        .where((t) => t > breakoutTime && t <= timeTo25m)
-        .toList()
+            .where((t) => t > breakoutTime && t <= timeTo25m)
+            .toList()
         : <Duration>[];
 
     final numStrokes0_15 = isDoubleTap
@@ -594,7 +652,7 @@ class _StrokeAnalysisResultViewState extends State<StrokeAnalysisResultView> {
         ? (15.0 - breakoutDist) / numStrokes0_15
         : null;
     final strokeLength15_25 =
-    (numStrokes15_25 > 0) ? 10.0 / numStrokes15_25 : null;
+        (numStrokes15_25 > 0) ? 10.0 / numStrokes15_25 : null;
     final strokeLength0_25 = (breakoutDist != null && numStrokes0_25 > 0)
         ? (25.0 - breakoutDist) / numStrokes0_25
         : null;
@@ -612,9 +670,9 @@ class _StrokeAnalysisResultViewState extends State<StrokeAnalysisResultView> {
 
     // Phase Analysis
     final phase1Name =
-    widget.stroke == Stroke.breaststroke ? "High-Glide" : "Back-Fwd";
+        widget.stroke == Stroke.breaststroke ? "High-Glide" : "Back-Fwd";
     final phase2Name =
-    widget.stroke == Stroke.breaststroke ? "Glide-High" : "Fwd-Back";
+        widget.stroke == Stroke.breaststroke ? "Glide-High" : "Fwd-Back";
 
     final phase1_0_15 = _getAveragePhaseMetricsForSegment(
         isPhase1: true,
@@ -654,7 +712,7 @@ class _StrokeAnalysisResultViewState extends State<StrokeAnalysisResultView> {
         String title, String? val1, String? val2, String? val3,
         {VoidCallback? onTitleTap}) {
       Widget titleWidget =
-      Text(title, style: const TextStyle(fontWeight: FontWeight.bold));
+          Text(title, style: const TextStyle(fontWeight: FontWeight.bold));
 
       if (onTitleTap != null) {
         titleWidget = InkWell(
@@ -801,7 +859,7 @@ class _StrokeAnalysisResultViewState extends State<StrokeAnalysisResultView> {
           children: [
             Text(title,
                 style:
-                const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                    const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
             if (details != null && details.isNotEmpty || child != null)
               const SizedBox(height: 8),
             if (child != null)
@@ -811,9 +869,9 @@ class _StrokeAnalysisResultViewState extends State<StrokeAnalysisResultView> {
               ),
             if (details != null)
               ...details.map((text) => Padding(
-                padding: const EdgeInsets.only(bottom: 4.0),
-                child: Text(text, style: const TextStyle(fontSize: 16)),
-              )),
+                    padding: const EdgeInsets.only(bottom: 4.0),
+                    child: Text(text, style: const TextStyle(fontSize: 16)),
+                  )),
           ],
         ),
       ),
@@ -843,10 +901,10 @@ class AnalysisTimelineChart extends StatelessWidget {
           strokeTimestamps: strokeTimestamps,
           stroke: stroke,
           eventLabelStyle:
-          Theme.of(context).textTheme.bodySmall ?? const TextStyle(),
+              Theme.of(context).textTheme.bodySmall ?? const TextStyle(),
           strokeColors: (
-          Theme.of(context).colorScheme.primary,
-          Theme.of(context).colorScheme.secondary
+            Theme.of(context).colorScheme.primary,
+            Theme.of(context).colorScheme.secondary
           ),
           eventColor: Theme.of(context).colorScheme.error,
         ),
@@ -943,7 +1001,7 @@ class _TimelineChartPainter extends CustomPainter {
           text: TextSpan(
               text: strokeLabel,
               style:
-              eventLabelStyle.copyWith(color: strokeColor, fontSize: 10)),
+                  eventLabelStyle.copyWith(color: strokeColor, fontSize: 10)),
           textDirection: TextDirection.ltr,
         );
         strokeTextPainter.layout();

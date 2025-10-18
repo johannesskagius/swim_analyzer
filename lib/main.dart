@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:swim_analyzer/analysis/stroke/stroke_analysis_repository.dart';
 import 'package:swim_analyzer/theme_provider.dart';
 import 'package:swim_apps_shared/auth_service.dart';
 import 'package:swim_apps_shared/swim_apps_shared.dart';
@@ -32,6 +33,9 @@ class MyApp extends StatelessWidget {
         ),
         Provider<AnalyzesRepository>(
           create: (_) => AnalyzesRepository(FirebaseFirestore.instance),
+        ),
+        Provider<StrokeAnalysisRepository>(
+          create: (_) => StrokeAnalysisRepository(),
         ),
       ],
       child: Consumer<ThemeProvider>(

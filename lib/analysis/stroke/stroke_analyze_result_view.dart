@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:swim_analyzer/analysis/stroke/stroke_analysis.dart';
+import 'package:swim_analyzer/analysis/stroke/stroke_analysis_repository.dart';
 import 'package:swim_analyzer/analysis/stroke/stroke_efficiency_event.dart';
 import 'package:swim_apps_shared/swim_apps_shared.dart';
 
@@ -413,8 +414,8 @@ class _StrokeAnalysisResultViewState extends State<StrokeAnalysisResultView> {
 
     // 4. Get repository and save
     final analyzesRepository =
-        Provider.of<AnalyzesRepository>(context, listen: false);
-    //await analyzesRepository.addAnalysis(newAnalysis);
+        Provider.of<StrokeAnalysisRepository>(context, listen: false);
+    await analyzesRepository.addAnalysis(newAnalysis);
   }
 
   // --- Segment-Specific Calculations ---

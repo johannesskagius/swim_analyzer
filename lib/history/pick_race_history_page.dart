@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:swim_analyzer/history/off_the_block_history_page.dart';
+import 'package:swim_analyzer/history/stroke_history_page.dart';
 import 'package:swim_apps_shared/swim_apps_shared.dart';
 
 class PickRaceHistoryPage extends StatelessWidget {
@@ -45,6 +46,23 @@ class PickRaceHistoryPage extends StatelessWidget {
                     context,
                     MaterialPageRoute(
                       builder: (context) => OffTheBlockHistoryPage(appUser: appUser),
+                    ),
+                  );
+                },
+              ),
+            ),
+            const SizedBox(height: 10),
+            Card(
+              child: ListTile(
+                leading: const Icon(Icons.pool, size: 40),
+                title: const Text('Stroke Analyses'),
+                subtitle: const Text('View history of your stroke efficiency analyses.'),
+                trailing: const Icon(Icons.arrow_forward_ios),
+                onTap: () {
+                   Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => StrokeHistoryPage(appUser: appUser),
                     ),
                   );
                 },

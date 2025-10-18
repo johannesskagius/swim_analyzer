@@ -3,6 +3,8 @@ import 'package:provider/provider.dart';
 import 'package:swim_analyzer/analysis/stroke/stroke_analysis.dart';
 import 'package:swim_analyzer/analysis/stroke/stroke_analysis_repository.dart';
 import 'package:swim_analyzer/analysis/stroke/stroke_efficiency_event.dart';
+import 'package:swim_analyzer/analysis/stroke/stroke_segment_matrix.dart';
+import 'package:swim_analyzer/analysis/stroke/stroke_under_water_matrix.dart';
 import 'package:swim_apps_shared/swim_apps_shared.dart';
 
 class StrokeAnalysisResultView extends StatefulWidget {

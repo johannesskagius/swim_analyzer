@@ -653,17 +653,29 @@ class _FullAnalysisUIState extends _AnalysisUIBaseState<_FullAnalysisUI> {
           List.generate(event.checkPoints.length, (_) => GlobalKey());
     });
   }
+  final TransformationController _zoomController = TransformationController();
 
   @override
   Widget build(BuildContext context) {
     return Column(
       children: [
-        Center(
-          child: AspectRatio(
-            aspectRatio: controller.value.aspectRatio,
-            child: VideoPlayer(controller),
-          ),
+    Center(
+      child: InteractiveViewer(
+        transformationController: _zoomController,
+        panEnabled: true,
+        scaleEnabled: true,
+        minScale: 1.0,
+        maxScale: 8.0,
+        onInteractionEnd: (_) {
+          // Optional: reset zoom if needed
+          // _zoomController.value = Matrix4.identity();
+        },
+        child: AspectRatio(
+          aspectRatio: controller.value.aspectRatio,
+          child: VideoPlayer(controller),
         ),
+      ),
+    ),
         Expanded(child: _buildControlsOverlay()),
       ],
     );
@@ -1022,14 +1034,27 @@ class _QuickAnalysisUIState extends _AnalysisUIBaseState<_QuickAnalysisUI> {
     }
   }
 
+  final TransformationController _zoomController = TransformationController();
+
   @override
   Widget build(BuildContext context) {
     return Column(
       children: [
         Center(
-          child: AspectRatio(
-            aspectRatio: controller.value.aspectRatio,
-            child: VideoPlayer(controller),
+          child: InteractiveViewer(
+            transformationController: _zoomController,
+            panEnabled: true,
+            scaleEnabled: true,
+            minScale: 1.0,
+            maxScale: 8.0,
+            onInteractionEnd: (_) {
+              // Optional: reset zoom if needed
+              // _zoomController.value = Matrix4.identity();
+            },
+            child: AspectRatio(
+              aspectRatio: controller.value.aspectRatio,
+              child: VideoPlayer(controller),
+            ),
           ),
         ),
         Expanded(child: _buildControlsOverlay()),

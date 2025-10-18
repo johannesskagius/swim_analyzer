@@ -2,9 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:swim_analyzer/analysis/analyze_type.dart';
 import 'package:swim_analyzer/analysis/race/race_analysis.dart';
 import 'package:swim_analyzer/analysis/start/start_analysis.dart';
+import 'package:swim_analyzer/analysis/stroke/stroke_analyzes_widget.dart';
+import 'package:swim_analyzer/analysis/turn/turn_analysis_page.dart';
 import 'package:swim_apps_shared/src/objects/user.dart';
-
-import 'not_implement_analyses.dart';
+import 'package:swim_apps_shared/swim_apps_shared.dart';
 
 class PickAnalysis extends StatelessWidget {
   final AppUser appUser;
@@ -30,14 +31,13 @@ class PickAnalysis extends StatelessWidget {
         targetPage = StartAnalysis(appUser: appUser);
         break;
       case AnalyzeType.stroke:
-        targetPage = const StrokeAnalysisPage();
+        targetPage = StrokeAnalysisPage(appUser: appUser,);
         break;
       case AnalyzeType.turn:
-        targetPage = const TurnAnalysisPage();
+        targetPage = TurnAnalysisPage(appUser: appUser);
         break;
     }
 
-    // A single, consistent navigation call.
     return Navigator.of(context).push<T>(
       MaterialPageRoute(
         builder: (ctx) => targetPage,
@@ -50,7 +50,9 @@ class PickAnalysis extends StatelessWidget {
     final theme = Theme.of(context);
     final Set<AnalyzeType> implementedTypes = {
       AnalyzeType.race,
-      AnalyzeType.start
+      AnalyzeType.start,
+      AnalyzeType.stroke,
+      //AnalyzeType.turn
     };
 
     return GridView(

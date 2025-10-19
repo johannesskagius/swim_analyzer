@@ -41,7 +41,7 @@ class _OffTheBlockAnalysisPageState extends State<OffTheBlockAnalysisPage> {
   static const double _pixelsPerSecond = 150.0;
 
   final TransformationController _transformationController =
-      TransformationController();
+  TransformationController();
 
   bool _isMeasuring = false;
   int _measurementStep = 0;
@@ -64,6 +64,18 @@ class _OffTheBlockAnalysisPageState extends State<OffTheBlockAnalysisPage> {
     super.dispose();
   }
 
+  Offset _sceneToVideo(Offset sceneOffset) {
+    final videoSize = _controller!.value.size;
+    final displayWidth = MediaQuery.of(context).size.width;
+    final displayHeight = displayWidth / _controller!.value.aspectRatio;
+
+    return Offset(
+      sceneOffset.dx * videoSize.width / displayWidth,
+      sceneOffset.dy * videoSize.height / displayHeight,
+    );
+  }
+
+
   // --------------------------------------------------------------------------
   // 🧠 AI DETECTION LOGIC
   // --------------------------------------------------------------------------
@@ -74,6 +86,7 @@ class _OffTheBlockAnalysisPageState extends State<OffTheBlockAnalysisPage> {
     try {
       await _controller!.pause();
 
+      // 1️⃣ Extract a frame at current position
       final positionMs = _controller!.value.position.inMilliseconds;
       final videoPath = _controller!.dataSource.replaceAll('file://', '');
       final thumb = await VideoThumbnail.thumbnailData(
@@ -84,6 +97,7 @@ class _OffTheBlockAnalysisPageState extends State<OffTheBlockAnalysisPage> {
       );
       if (thumb == null) throw Exception('No frame extracted');
 
+      // 2️⃣ Prepare tensor input
       final input = _imgToByteListFloat32(thumb, 128, 128);
       final interpreter = await Interpreter.fromAsset(
           'assets/models/detect_5m_marks_v3.tflite');
@@ -92,35 +106,88 @@ class _OffTheBlockAnalysisPageState extends State<OffTheBlockAnalysisPage> {
       interpreter.run(input.reshape([1, 128, 128, 3]), output);
       final result = output[0]; // [x1, y1, x2, y2]
 
-      final videoWidth = MediaQuery.of(context).size.width;
-      final videoHeight = videoWidth / _controller!.value.aspectRatio;
+      final Size videoSize = _controller!.value.size;
+      final double videoWidth = videoSize.width;
+      final double videoHeight = videoSize.height;
+      debugPrint('Real video frame: ${videoWidth.toStringAsFixed(0)}×${videoHeight.toStringAsFixed(0)}');
 
-      final leftMark = Offset(result[0] * videoWidth, result[1] * videoHeight);
-      final rightMark = Offset(result[2] * videoWidth, result[3] * videoHeight);
 
+
+      // 3️⃣ Detect coordinate scale automatically (0–1 vs 0–128)
+      bool normalized = result.every((v) => v >= 0.0 && v <= 1.0);
+      debugPrint("AI output: $result (normalized=$normalized)");
+
+      double scaleX = normalized ? videoWidth : videoWidth / 128.0;
+      double scaleY = normalized ? videoHeight : videoHeight / 128.0;
+
+      final leftMark = Offset(result[0] * scaleX, result[1] * scaleY);
+      final rightMark = Offset(result[2] * scaleX, result[3] * scaleY);
+
+      // 4️⃣ Make lines big enough to see clearly
+      const halfSpanPx = 120.0;
+      final leftStart = leftMark.translate(-halfSpanPx, 0);
+      final leftEnd = leftMark.translate(halfSpanPx, 0);
+      final rightStart = rightMark.translate(-halfSpanPx, 0);
+      final rightEnd = rightMark.translate(halfSpanPx, 0);
+
+      // 5️⃣ Compute and log scale info
+      final leftLengthPx = (leftStart - leftEnd).distance;
+      final rightLengthPx = (rightStart - rightEnd).distance;
+
+      // Perspective compensation: closer mark (smaller y) appears longer
+      final perspectiveFactor = rightMark.dy / leftMark.dy; // < 1.0 if rightMark higher
+      final correctedLeftLengthPx = leftLengthPx * perspectiveFactor.clamp(0.6, 1.0);
+
+// Weighted average: nearer lane dominates scale
+      final weightedAvgPxPerMeter = (correctedLeftLengthPx + rightLengthPx * 1.5) / (5.0 * 2.5);
+      debugPrint('Perspective factor = ${perspectiveFactor.toStringAsFixed(2)} '
+          '→ corrected L span ${correctedLeftLengthPx.toStringAsFixed(1)} px');
+      debugPrint('Weighted pixels per meter ≈ ${weightedAvgPxPerMeter.toStringAsFixed(1)}');
+
+      final ppmLeft = leftLengthPx / 5.0;
+      final ppmRight = rightLengthPx / 5.0;
+      final avgPpm = (ppmLeft + ppmRight) / 2.0;
+
+      debugPrint('Video size: ${videoWidth.toStringAsFixed(0)}×${videoHeight.toStringAsFixed(0)}');
+      debugPrint('AI leftMark: ${leftMark.dx.toStringAsFixed(1)}, ${leftMark.dy.toStringAsFixed(1)}');
+      debugPrint('AI rightMark: ${rightMark.dx.toStringAsFixed(1)}, ${rightMark.dy.toStringAsFixed(1)}');
+      debugPrint('AI left span ≈ ${leftLengthPx.toStringAsFixed(1)} px');
+      debugPrint('AI right span ≈ ${rightLengthPx.toStringAsFixed(1)} px');
+      debugPrint('Pixels per meter ≈ ${avgPpm.toStringAsFixed(1)}');
+
+      // 6️⃣ Update overlay
       setState(() {
         _measurementPoints
           ..clear()
           ..addAll([
-            leftMark.translate(-5, 0),
-            leftMark.translate(5, 0),
-            rightMark.translate(-5, 0),
-            rightMark.translate(5, 0),
+            leftStart,
+            leftEnd,
+            rightStart,
+            rightEnd,
           ]);
         _measurementStep = 4;
       });
 
+      // 7️⃣ Show visible debug info
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('✅ AI detected 5m marks automatically')),
+        SnackBar(
+          duration: const Duration(seconds: 4),
+          content: Text(
+            'AI ${normalized ? "normalized" : "pixel"} coords '
+                '| ${avgPpm.toStringAsFixed(1)} px/m  '
+                '| L:${leftLengthPx.toStringAsFixed(0)}px R:${rightLengthPx.toStringAsFixed(0)}px',
+          ),
+        ),
       );
-    } catch (e) {
-      debugPrint('AI detection failed: $e');
+    } catch (e, st) {
+      debugPrint('AI detection failed: $e\n$st');
       ScaffoldMessenger.of(context)
           .showSnackBar(SnackBar(content: Text('AI detection failed: $e')));
     } finally {
       if (mounted) setState(() => _isDetecting = false);
     }
   }
+
 
   Float32List _imgToByteListFloat32(Uint8List bytes, int w, int h) {
     final img = imgLib.decodeImage(bytes)!;
@@ -133,7 +200,7 @@ class _OffTheBlockAnalysisPageState extends State<OffTheBlockAnalysisPage> {
       for (var x = 0; x < w; x++) {
         final pixel = resized.getPixel(x, y);
 
-        // For image >= 4.0
+        // image >= 4.0 returns Pixel
         final r = pixel.r.toDouble();
         final g = pixel.g.toDouble();
         final b = pixel.b.toDouble();
@@ -144,14 +211,11 @@ class _OffTheBlockAnalysisPageState extends State<OffTheBlockAnalysisPage> {
       }
     }
 
-    return buffer; // ✅ Return Float32List, not Uint8List
+    return buffer; // Float32List for a float model
   }
 
-
-
-
   // --------------------------------------------------------------------------
-  // 🔹 EXISTING APP LOGIC (unchanged)
+  // 🔹 EXISTING APP LOGIC (unchanged except where noted)
   // --------------------------------------------------------------------------
   void _videoListener() {
     if (mounted && !_isScrubbing && _controller != null) {
@@ -213,7 +277,7 @@ class _OffTheBlockAnalysisPageState extends State<OffTheBlockAnalysisPage> {
   }
 
   void _calculateResults() {
-    // Call the new physics calculation method
+    // Existing physics calc flow unchanged
     final Map<String, double>? jumpData = _calculateJumpPhysics();
 
     Navigator.of(context).push(
@@ -223,7 +287,6 @@ class _OffTheBlockAnalysisPageState extends State<OffTheBlockAnalysisPage> {
           startDistance: _startDistanceController.text,
           startHeight: startHeight,
           jumpData: jumpData,
-          // Pass the new data to the results page
           appUser: widget.appUser,
         ),
       ),
@@ -237,19 +300,19 @@ class _OffTheBlockAnalysisPageState extends State<OffTheBlockAnalysisPage> {
   }
 
   Widget _buildVideoSelectionPrompt() => Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: const [
-            Icon(Icons.video_library_outlined, size: 80, color: Colors.grey),
-            SizedBox(height: 16),
-            Text(
-              'Please select a video of a start to begin.',
-              textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 16),
-            ),
-          ],
+    child: Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: const [
+        Icon(Icons.video_library_outlined, size: 80, color: Colors.grey),
+        SizedBox(height: 16),
+        Text(
+          'Please select a video of a start to begin.',
+          textAlign: TextAlign.center,
+          style: TextStyle(fontSize: 16),
         ),
-      );
+      ],
+    ),
+  );
 
   Widget _buildPrecisionScrubber() {
     if (_controller == null || !_controller!.value.isInitialized) {
@@ -277,8 +340,8 @@ class _OffTheBlockAnalysisPageState extends State<OffTheBlockAnalysisPage> {
                   _isScrubbing) {
                 final newPosition = Duration(
                     milliseconds:
-                        (notification.metrics.pixels / _pixelsPerSecond * 1000)
-                            .round());
+                    (notification.metrics.pixels / _pixelsPerSecond * 1000)
+                        .round());
                 _controller!.seekTo(newPosition);
               } else if (notification is ScrollEndNotification &&
                   _isScrubbing) {
@@ -318,6 +381,9 @@ class _OffTheBlockAnalysisPageState extends State<OffTheBlockAnalysisPage> {
   }
 
   Widget _buildVideoPlayer() {
+    // compute a live preview distance (no state changes)
+    final previewMeters = _previewJumpMeters();
+
     return InteractiveViewer(
       transformationController: _transformationController,
       minScale: 1.0,
@@ -334,7 +400,7 @@ class _OffTheBlockAnalysisPageState extends State<OffTheBlockAnalysisPage> {
               _measurementPoints.length >= 6) return;
 
           final sceneOffset =
-              _transformationController.toScene(details.localPosition);
+          _transformationController.toScene(details.localPosition);
           for (int i = 0; i < _measurementPoints.length; i++) {
             final handleCenter = _measurementPoints[i] +
                 const Offset(0, MeasurementPainter.handleYOffset);
@@ -351,7 +417,7 @@ class _OffTheBlockAnalysisPageState extends State<OffTheBlockAnalysisPage> {
         onPanStart: (details) {
           if (!_isMeasuring) return;
           final sceneOffset =
-              _transformationController.toScene(details.localPosition);
+          _transformationController.toScene(details.localPosition);
           int? hitIndex;
           for (int i = _measurementPoints.length - 1; i >= 0; i--) {
             final handleCenter = _measurementPoints[i] +
@@ -372,7 +438,7 @@ class _OffTheBlockAnalysisPageState extends State<OffTheBlockAnalysisPage> {
         onPanUpdate: (details) {
           if (!_isPointDragInProgress || _draggedPointIndex == null) return;
           final sceneOffset =
-              _transformationController.toScene(details.localPosition);
+          _transformationController.toScene(details.localPosition);
           setState(() {
             _measurementPoints[_draggedPointIndex!] =
                 sceneOffset - const Offset(0, MeasurementPainter.handleYOffset);
@@ -406,6 +472,16 @@ class _OffTheBlockAnalysisPageState extends State<OffTheBlockAnalysisPage> {
                       ),
                     ),
                   ),
+                // NEW: draw AI 5m marks + jump line + label on top while measuring
+                if (_isMeasuring && _measurementPoints.length >= 4)
+                  Positioned.fill(
+                    child: CustomPaint(
+                      painter: _JumpOverlayPainter(
+                        points: _measurementPoints,
+                        previewMeters: previewMeters,
+                      ),
+                    ),
+                  ),
                 if (!_isMeasuring) ControlsOverlay(controller: _controller!),
               ],
             ),
@@ -424,10 +500,10 @@ class _OffTheBlockAnalysisPageState extends State<OffTheBlockAnalysisPage> {
       if (startSignalTime != null) {
         final relativeTime = markedTime - startSignalTime;
         timeText =
-            '${(relativeTime.inMilliseconds / 1000.0).toStringAsFixed(2)}s';
+        '${(relativeTime.inMilliseconds / 1000.0).toStringAsFixed(2)}s';
       } else {
         timeText =
-            '${(markedTime.inMilliseconds / 1000.0).toStringAsFixed(2)}s (absolute)';
+        '${(markedTime.inMilliseconds / 1000.0).toStringAsFixed(2)}s (absolute)';
       }
     } else {
       timeText = 'Not marked';
@@ -438,7 +514,7 @@ class _OffTheBlockAnalysisPageState extends State<OffTheBlockAnalysisPage> {
       subtitle: Text(
         timeText,
         style:
-            TextStyle(color: markedTime != null ? Colors.green : Colors.grey),
+        TextStyle(color: markedTime != null ? Colors.green : Colors.grey),
       ),
       trailing: ElevatedButton(
         onPressed: () => _markEvent(event),
@@ -492,7 +568,7 @@ class _OffTheBlockAnalysisPageState extends State<OffTheBlockAnalysisPage> {
 
     try {
       final XFile? pickedFile =
-          await _picker.pickVideo(source: ImageSource.gallery);
+      await _picker.pickVideo(source: ImageSource.gallery);
       if (pickedFile == null) {
         setState(() => _isLoading = false);
         return;
@@ -524,53 +600,53 @@ class _OffTheBlockAnalysisPageState extends State<OffTheBlockAnalysisPage> {
 
   // 🧩 Only change here: trigger AI on Measure
   Widget _buildOptionalStatsFields() => Column(
+    children: [
+      Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
-                child: TextFormField(
-                  controller: _startDistanceController,
-                  decoration: const InputDecoration(
-                    labelText: 'Start Distance (m)',
-                    border: OutlineInputBorder(),
-                  ),
-                  keyboardType:
-                      const TextInputType.numberWithOptions(decimal: true),
-                ),
+          Expanded(
+            child: TextFormField(
+              controller: _startDistanceController,
+              decoration: const InputDecoration(
+                labelText: 'Start Distance (m)',
+                border: OutlineInputBorder(),
               ),
-              const SizedBox(width: 8),
-              ElevatedButton(
-                onPressed: _controller != null
-                    ? () async {
-                        if (_isMeasuring) {
-                          setState(() {
-                            _isMeasuring = false;
-                            _measurementPoints.clear();
-                            _measurementStep = 0;
-                            _draggedPointIndex = null;
-                            _isPointDragInProgress = false;
-                          });
-                        } else {
-                          setState(() {
-                            _isMeasuring = true;
-                            _transformationController.value =
-                                Matrix4.identity();
-                          });
-                          _controller?.pause();
-                          await _runAIDetection(); // 🚀 Run AI when Measure pressed
-                        }
-                      }
-                    : null,
-                style: ElevatedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(
-                        vertical: 16, horizontal: 8)),
-                child: Text(_isMeasuring ? 'Cancel' : 'Measure'),
-              ),
-            ],
+              keyboardType:
+              const TextInputType.numberWithOptions(decimal: true),
+            ),
+          ),
+          const SizedBox(width: 8),
+          ElevatedButton(
+            onPressed: _controller != null
+                ? () async {
+              if (_isMeasuring) {
+                setState(() {
+                  _isMeasuring = false;
+                  _measurementPoints.clear();
+                  _measurementStep = 0;
+                  _draggedPointIndex = null;
+                  _isPointDragInProgress = false;
+                });
+              } else {
+                setState(() {
+                  _isMeasuring = true;
+                  _transformationController.value =
+                      Matrix4.identity();
+                });
+                _controller?.pause();
+                await _runAIDetection(); // 🚀 Run AI when Measure pressed
+              }
+            }
+                : null,
+            style: ElevatedButton.styleFrom(
+                padding: const EdgeInsets.symmetric(
+                    vertical: 16, horizontal: 8)),
+            child: Text(_isMeasuring ? 'Cancel' : 'Measure'),
           ),
         ],
-      );
+      ),
+    ],
+  );
 
   // --------------------------------------------------------------------------
   // 🖼 EVERYTHING BELOW IS YOUR ORIGINAL CODE (unchanged)
@@ -608,6 +684,91 @@ class _OffTheBlockAnalysisPageState extends State<OffTheBlockAnalysisPage> {
     };
   }
 
+  // NEW: AI-scaled measurement using the 5 m marks
+  void _calculateMeasuredDistance({bool showSnackbar = true}) {
+    if (_measurementPoints.length < 6) {
+      if (showSnackbar) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Please mark start and water entry.')),
+        );
+      }
+      return;
+    }
+
+    // 0–3 = AI 5m marks; 4 = start block; 5 = water entry
+    final leftA = _sceneToVideo(_measurementPoints[0]);
+    final leftB = _sceneToVideo(_measurementPoints[1]);
+    final rightA = _sceneToVideo(_measurementPoints[2]);
+    final rightB = _sceneToVideo(_measurementPoints[3]);
+    final start = _sceneToVideo(_measurementPoints[4]);
+    final entry = _sceneToVideo(_measurementPoints[5]);
+
+    final ppmLeft = (leftA - leftB).distance / 5.0;
+    final ppmRight = (rightA - rightB).distance / 5.0;
+    final pixelsPerMeter = (ppmLeft + ppmRight) / 2.0;
+
+    if (pixelsPerMeter <= 0) {
+      if (showSnackbar) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Invalid reference scale.')),
+        );
+      }
+      return;
+    }
+
+    final jumpPixels = (entry - start).distance;
+    final jumpMeters = jumpPixels / pixelsPerMeter;
+    debugPrint('Jump pixels: ${jumpPixels.toStringAsFixed(1)} → ${jumpMeters.toStringAsFixed(2)} m');
+
+
+    if (mounted) {
+      setState(() {
+        _startDistanceController.text = jumpMeters.toStringAsFixed(2);
+      });
+    }
+
+    if (showSnackbar) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content:
+          Text('Jump length: ${jumpMeters.toStringAsFixed(2)} m'),
+        ),
+      );
+    }
+
+    // Optionally exit measuring; keep points if you prefer
+    Future.delayed(Duration.zero, () {
+      if (!mounted) return;
+      setState(() {
+        _isMeasuring = false;
+        _measurementStep = 0;
+        _draggedPointIndex = null;
+        _isPointDragInProgress = false;
+      });
+    });
+  }
+
+  // NEW: live preview meters while user drags points (no state changes)
+  double? _previewJumpMeters() {
+    if (_measurementPoints.length < 6) return null;
+
+    final leftA = _measurementPoints[0];
+    final leftB = _measurementPoints[1];
+    final rightA = _measurementPoints[2];
+    final rightB = _measurementPoints[3];
+
+    final start = _measurementPoints[4];
+    final entry = _measurementPoints[5];
+
+    final ppmLeft = (leftA - leftB).distance / 5.0;
+    final ppmRight = (rightA - rightB).distance / 5.0;
+    final pixelsPerMeter = (ppmLeft + ppmRight) / 2.0;
+    if (pixelsPerMeter <= 0) return null;
+
+    final jumpPixels = (entry - start).distance;
+    return jumpPixels / pixelsPerMeter;
+  }
+
   Widget _buildActionButtons() {
     final allEventsMarked = OffTheBlockEvent.values
         .every((event) => _markedTimestamps.containsKey(event));
@@ -629,9 +790,9 @@ class _OffTheBlockAnalysisPageState extends State<OffTheBlockAnalysisPage> {
           const SizedBox(height: 10),
           ElevatedButton.icon(
             onPressed:
-                _controller?.value.isInitialized == true && allEventsMarked
-                    ? _calculateResults
-                    : null,
+            _controller?.value.isInitialized == true && allEventsMarked
+                ? _calculateResults
+                : null,
             icon: const Icon(Icons.analytics),
             label: const Text('Calculate Results'),
             style: ElevatedButton.styleFrom(
@@ -645,7 +806,6 @@ class _OffTheBlockAnalysisPageState extends State<OffTheBlockAnalysisPage> {
     );
   }
 
-  // (the rest of your long class is unchanged)
   // --------------------------------------------------------------------------
   // 🧭 BUILD UI WRAPPED WITH DETECTION OVERLAY
   // --------------------------------------------------------------------------
@@ -674,7 +834,8 @@ class _OffTheBlockAnalysisPageState extends State<OffTheBlockAnalysisPage> {
                     if (_measurementPoints.length == 6) ...[
                       const SizedBox(height: 8),
                       ElevatedButton.icon(
-                        onPressed: () => _calculateJumpPhysics(),
+                        // FIX: use the AI-scaled measurement
+                        onPressed: () => _calculateMeasuredDistance(),
                         icon: const Icon(Icons.straighten),
                         label: const Text('Calculate Distance'),
                         style: ElevatedButton.styleFrom(
@@ -693,8 +854,8 @@ class _OffTheBlockAnalysisPageState extends State<OffTheBlockAnalysisPage> {
                 child: _isLoading
                     ? const Center(child: CircularProgressIndicator())
                     : _controller == null
-                        ? _buildVideoSelectionPrompt()
-                        : _buildVideoPlayer(),
+                    ? _buildVideoSelectionPrompt()
+                    : _buildVideoPlayer(),
               ),
             ),
             if (_controller != null && !_isLoading)
@@ -719,5 +880,99 @@ class _OffTheBlockAnalysisPageState extends State<OffTheBlockAnalysisPage> {
           ),
         ),
     ]);
+  }
+}
+
+// --------------------------------------------------------------------------
+// 🎨 Overlay painter: draws AI 5m marks + jump line + distance label
+// --------------------------------------------------------------------------
+class _JumpOverlayPainter extends CustomPainter {
+  final List<Offset> points; // expects: 0-3 AI marks, 4 start, 5 entry
+  final double? previewMeters;
+
+  _JumpOverlayPainter({
+    required this.points,
+    required this.previewMeters,
+  });
+
+  void _drawLabel(Canvas canvas, Offset pos, String text, Color color) {
+    final tp = TextPainter(
+      text: TextSpan(
+        text: text,
+        style: TextStyle(color: color, backgroundColor: Colors.black87, fontSize: 12),
+      ),
+      textDirection: TextDirection.ltr,
+    )..layout();
+    tp.paint(canvas, pos + const Offset(4, -16));
+  }
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final aiMarkPaint = Paint()
+      ..color = Colors.redAccent
+      ..strokeWidth = 3
+      ..style = PaintingStyle.stroke;
+
+    final jumpPaint = Paint()
+      ..color = Colors.greenAccent
+      ..strokeWidth = 4
+      ..style = PaintingStyle.stroke;
+
+    final handlePaint = Paint()
+      ..color = Colors.white
+      ..style = PaintingStyle.fill;
+
+    // === DRAW AI MARKS (big visible lines + circles) ===
+    if (points.length >= 2) {
+      canvas.drawLine(points[0], points[1], aiMarkPaint);
+      canvas.drawCircle(points[0], 6, aiMarkPaint);
+      canvas.drawCircle(points[1], 6, aiMarkPaint);
+      _drawLabel(canvas, points[1], '5 m ref (L)', Colors.redAccent);
+    }
+    if (points.length >= 4) {
+      canvas.drawLine(points[2], points[3], aiMarkPaint);
+      canvas.drawCircle(points[2], 6, aiMarkPaint);
+      canvas.drawCircle(points[3], 6, aiMarkPaint);
+      _drawLabel(canvas, points[3], '5 m ref (R)', Colors.redAccent);
+    }
+
+    // === DRAW JUMP LINE ===
+    if (points.length >= 5) {
+      final start = points[4];
+      canvas.drawCircle(start, 5, handlePaint);
+      _drawLabel(canvas, start, 'Start', Colors.greenAccent);
+    }
+    if (points.length >= 6) {
+      final start = points[4];
+      final entry = points[5];
+      canvas.drawLine(start, entry, jumpPaint);
+      canvas.drawCircle(entry, 5, handlePaint);
+      _drawLabel(canvas, entry, 'Entry', Colors.greenAccent);
+
+      if (previewMeters != null) {
+        final mid = Offset((start.dx + entry.dx) / 2, (start.dy + entry.dy) / 2);
+        final tp = TextPainter(
+          text: TextSpan(
+            text: '${previewMeters!.toStringAsFixed(2)} m',
+            style: const TextStyle(
+              color: Colors.white,
+              backgroundColor: Colors.black87,
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          textDirection: TextDirection.ltr,
+        )..layout();
+        tp.paint(canvas, mid + const Offset(10, -25));
+      }
+    }
+    _drawLabel(canvas, points[1], '5 m ref (L, corr)', Colors.orangeAccent);
+    _drawLabel(canvas, points[3], '5 m ref (R, main)', Colors.redAccent);
+  }
+
+  @override
+  bool shouldRepaint(covariant _JumpOverlayPainter oldDelegate) {
+    return oldDelegate.points != points ||
+        oldDelegate.previewMeters != previewMeters;
   }
 }

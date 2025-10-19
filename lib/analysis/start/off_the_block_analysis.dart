@@ -53,6 +53,8 @@ class _OffTheBlockAnalysisPageState extends State<OffTheBlockAnalysisPage> {
     _scrubberScrollController = ScrollController();
   }
 
+
+
   // ### NEW METHOD: Calculates jump physics based on user input ###
   Map<String, double>? _calculateJumpPhysics() {
     // 1. --- GATHER AND VALIDATE INPUTS ---

@@ -3,22 +3,18 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:swim_analyzer/analysis/race/quick_analysis_ui.dart';
-import 'package:swim_analyzer/analysis/race/race_analysis_modes.dart';
-import 'package:swim_analyzer/analysis/race/results_page.dart';
 import 'package:swim_apps_shared/swim_apps_shared.dart';
 import 'package:video_player/video_player.dart';
 
-import '../time_line_painter.dart';
 import 'analysis_level.dart';
-import 'analysis_ui_base.dart';
 import 'full_analysis_ui.dart';
 
 class RaceAnalysisView extends StatefulWidget {
   final AppUser appUser;
+
   const RaceAnalysisView({super.key, required this.appUser});
 
   @override
@@ -256,7 +252,8 @@ class _RaceAnalysisViewState extends State<RaceAnalysisView> {
             key: _fullAnalysisKey,
             controller: _controller!,
             event: _currentEvent!,
-            onStateChanged: _onChildStateChanged, // FIX: Pass the callback down
+            onStateChanged: _onChildStateChanged,
+            // FIX: Pass the callback down
             appUser: widget.appUser,
           );
         case AnalysisType.quick:
@@ -264,7 +261,8 @@ class _RaceAnalysisViewState extends State<RaceAnalysisView> {
             key: _quickAnalysisKey,
             controller: _controller!,
             event: _currentEvent!,
-            onStateChanged: _onChildStateChanged, // FIX: Pass the callback down
+            onStateChanged: _onChildStateChanged,
+            // FIX: Pass the callback down
             appUser: widget.appUser,
           );
         default:

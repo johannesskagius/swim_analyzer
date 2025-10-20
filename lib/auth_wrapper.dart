@@ -98,12 +98,13 @@ class _SubscriptionWrapperState extends State<_SubscriptionWrapper> {
       final CustomerInfo customerInfo = await Purchases.getCustomerInfo();
 
       // Check if the user has an active entitlement in RevenueCat.
-      // TODO: Replace 'pro_swimmer' and 'pro_coach' with your actual Entitlement IDs.
       final hasProSwimmer =
-          customerInfo.entitlements.active.containsKey('pro_swimmer');
+          customerInfo.entitlements.active.containsKey('entldd89ea41a6');
       final hasProCoach =
-          customerInfo.entitlements.active.containsKey('pro_coach');
+          customerInfo.entitlements.active.containsKey('entlb23409183b');
 
+      debugPrint('Debugprint: Has pro coach: $hasProCoach');
+      debugPrint('Debugprint: Has pro swimmer: $hasProSwimmer');
       return hasProSwimmer || hasProCoach;
     } catch (e, s) {
       FirebaseCrashlytics.instance.recordError(

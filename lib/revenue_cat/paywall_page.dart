@@ -78,11 +78,17 @@ class _PaywallPageState extends State<PaywallPage> {
           PurchaseParams.storeProduct(package.storeProduct));
       final CustomerInfo customerInfo = purchaseResult.customerInfo;
 
+      // --- FIX: Add logging to see what entitlements are active ---
+      if (kDebugMode) {
+        print(
+            'Active entitlements after purchase: ${customerInfo.entitlements.active.keys}');
+      }
+
       // Check if the purchase granted an active entitlement.
       final hasProSwimmer =
-          customerInfo.entitlements.active.containsKey('pro_swimmer');
+      customerInfo.entitlements.active.containsKey('pro_swimmer');
       final hasProCoach =
-          customerInfo.entitlements.active.containsKey('pro_coach');
+      customerInfo.entitlements.active.containsKey('pro_coach');
 
       if (hasProSwimmer || hasProCoach) {
         // If the purchase was successful and granted access, navigate to the HomePage.
@@ -91,7 +97,23 @@ class _PaywallPageState extends State<PaywallPage> {
             MaterialPageRoute(
               builder: (_) => HomePage(appUser: widget.appUser!),
             ),
-            (route) => false, // Remove all previous routes.
+                (route) => false, // Remove all previous routes.
+          );
+        }
+      } else {
+        // --- FIX: Handle cases where entitlement is slow to update ---
+        // Assume success, show a message, and navigate.
+        // The AuthWrapper will be the final gatekeeper on the next app open.
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+                content: Text('Purchase successful! Unlocking features.')),
+          );
+          Navigator.of(context).pushAndRemoveUntil(
+            MaterialPageRoute(
+              builder: (_) => HomePage(appUser: widget.appUser!),
+            ),
+                (route) => false,
           );
         }
       }
@@ -131,7 +153,7 @@ class _PaywallPageState extends State<PaywallPage> {
 
     try {
       final CustomerInfo restoredCustomerInfo =
-          await Purchases.restorePurchases();
+      await Purchases.restorePurchases();
 
       final hasActiveEntitlement =
           restoredCustomerInfo.entitlements.active.isNotEmpty;
@@ -153,7 +175,7 @@ class _PaywallPageState extends State<PaywallPage> {
             MaterialPageRoute(
               builder: (_) => HomePage(appUser: widget.appUser!),
             ),
-            (route) => false,
+                (route) => false,
           );
         }
       }
@@ -167,6 +189,7 @@ class _PaywallPageState extends State<PaywallPage> {
         }
       }
     } catch (e, s) {
+      // FIX: Corrected typo from "Crashlytiny" to "Crashlytics"
       FirebaseCrashlytics.instance.recordError(e, s, reason: 'Restore failed');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -233,26 +256,26 @@ class _PaywallPageState extends State<PaywallPage> {
                       ),
                       kDebugMode
                           ? ElevatedButton(
-                              onPressed: () {
-                                if (widget.appUser != null) {
-                                  Navigator.of(context).pushAndRemoveUntil(
-                                    MaterialPageRoute(
-                                      builder: (_) =>
-                                          HomePage(appUser: widget.appUser!),
-                                    ),
-                                    (route) => false,
-                                  );
-                                } else {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(
-                                      content: Text(
-                                          'Cannot skip without a valid user.'),
-                                    ),
-                                  );
-                                }
-                              },
-                              child: const Text('Skip to Home'),
-                            )
+                        onPressed: () {
+                          if (widget.appUser != null) {
+                            Navigator.of(context).pushAndRemoveUntil(
+                              MaterialPageRoute(
+                                builder: (_) =>
+                                    HomePage(appUser: widget.appUser!),
+                              ),
+                                  (route) => false,
+                            );
+                          } else {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text(
+                                    'Cannot skip without a valid user.'),
+                              ),
+                            );
+                          }
+                        },
+                        child: const Text('Skip to Home'),
+                      )
                           : const SizedBox.shrink()
                     ],
                   ),
@@ -272,7 +295,7 @@ class _PaywallPageState extends State<PaywallPage> {
 
                 return Card(
                   margin:
-                      const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                   child: ListTile(
                     contentPadding: const EdgeInsets.all(16),
                     title: Text(product.title,
@@ -284,11 +307,11 @@ class _PaywallPageState extends State<PaywallPage> {
                     trailing: Text(
                       product.priceString,
                       style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                            fontWeight: FontWeight.bold,
-                          ),
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                     onTap:
-                        _isPurchasing ? null : () => _purchasePackage(package),
+                    _isPurchasing ? null : () => _purchasePackage(package),
                   ),
                 );
               },

@@ -10,6 +10,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:purchases_flutter/purchases_flutter.dart';
 import 'package:swim_analyzer/analysis/stroke/stroke_analysis_repository.dart';
+import 'package:swim_analyzer/revenue_cat/purchases_service.dart';
 import 'package:swim_analyzer/theme_provider.dart';
 import 'package:swim_apps_shared/auth_service.dart';
 import 'package:swim_apps_shared/swim_apps_shared.dart';
@@ -26,10 +27,10 @@ void main() async {
 
     // --- RevenueCat Initialization ---
     // Set the debug log level for development.
+    await PurchasesService.initialize();
     await Purchases.setLogLevel(kDebugMode ? LogLevel.debug : LogLevel.info);
 
     // Configure the Purchases SDK with your public API keys from RevenueCat.
-    // TODO: Replace with your actual keys from your RevenueCat account.
     PurchasesConfiguration configuration;
 
     if (Platform.isIOS) {

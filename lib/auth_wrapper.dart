@@ -1,11 +1,10 @@
-import 'package:firebase_analytics/firebase_analytics.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:purchases_flutter/purchases_flutter.dart';
 import 'package:swim_analyzer/home_page.dart';
-import 'package:swim_analyzer/paywall_page.dart';
+import 'package:swim_analyzer/revenue_cat/paywall_page.dart';
 import 'package:swim_analyzer/sign_in_page.dart';
 import 'package:swim_apps_shared/swim_apps_shared.dart';
 
@@ -73,6 +72,7 @@ class _ProfileLoader extends StatelessWidget {
 // New widget to handle RevenueCat subscription logic.
 class _SubscriptionWrapper extends StatefulWidget {
   final AppUser appUser;
+
   const _SubscriptionWrapper({required this.appUser});
 
   @override
@@ -153,6 +153,7 @@ class _SubscriptionWrapperState extends State<_SubscriptionWrapper> {
 /// A simple, reusable loading screen with an optional message.
 class _LoadingScreen extends StatelessWidget {
   final String? message;
+
   const _LoadingScreen({this.message});
 
   @override

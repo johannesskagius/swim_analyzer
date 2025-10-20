@@ -72,10 +72,10 @@ class _PaywallPageState extends State<PaywallPage> {
     setState(() => _isPurchasing = true);
 
     try {
-      // --- FIX: The `purchasePackage` method now returns a `PurchaseResult`. ---
-      // We capture that result and then get the `CustomerInfo` from it.
-      final PurchaseResult purchaseResult =
-          await Purchases.purchasePackage(package);
+      // --- FIX: The `purchasePackage` method is deprecated. ---
+      // We now use `purchase` with a `PurchaseParams` object.
+      final purchaseResult = await Purchases.purchase(
+          PurchaseParams.storeProduct(package.storeProduct));
       final CustomerInfo customerInfo = purchaseResult.customerInfo;
 
       // Check if the purchase granted an active entitlement.

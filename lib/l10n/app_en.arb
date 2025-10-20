@@ -1,0 +1,7 @@
+{
+  "@@locale": "en",
+  "swimmerLevel": "Swimmer Level",
+  "@swimmerLevel": {
+    "description": "The subscription level for a swimmer account"
+  }
+}

@@ -100,7 +100,7 @@ class _OffTheBlockAnalysisPageState extends State<OffTheBlockAnalysisPage> {
       // 2️⃣ Prepare tensor input
       final input = _imgToByteListFloat32(thumb, 128, 128);
       final interpreter = await Interpreter.fromAsset(
-          'assets/models/detect_5m_marks_v3.tflite');
+          'assets/models/detect_5m_marks_v4.tflite');
 
       var output = List.filled(4, 0.0).reshape([1, 4]);
       interpreter.run(input.reshape([1, 128, 128, 3]), output);
@@ -652,35 +652,41 @@ class _OffTheBlockAnalysisPageState extends State<OffTheBlockAnalysisPage> {
   // 🖼 EVERYTHING BELOW IS YOUR ORIGINAL CODE (unchanged)
   // --------------------------------------------------------------------------
 
+  // Performs the final physics calculations for the jump.
   Map<String, double>? _calculateJumpPhysics() {
-    final startDistanceText = _startDistanceController.text;
-    final leftBlockTime = _markedTimestamps[OffTheBlockEvent.leftBlock];
-    final touchedWaterTime = _markedTimestamps[OffTheBlockEvent.touchedWater];
-    if (startDistanceText.isEmpty ||
-        leftBlockTime == null ||
-        touchedWaterTime == null) return null;
+    if (_markedTimestamps[OffTheBlockEvent.leftBlock] == null ||
+        _markedTimestamps[OffTheBlockEvent.touchedWater] == null ||
+        _measurementPoints.length < 6) {
+      return null;
+    }
 
-    final double? horizontalDistance = double.tryParse(startDistanceText);
-    if (horizontalDistance == null) return null;
+    // 1. Calculate jump distance from measurement points
+    final jumpStartPoint = _measurementPoints[4]; // block edge
+    final waterEntry = _measurementPoints[5]; // water entry
+    final jumpMidY = (jumpStartPoint.dy + waterEntry.dy) / 2;
 
-    final flightTime =
-        (touchedWaterTime.inMilliseconds - leftBlockTime.inMilliseconds) /
-            1000.0;
-    if (flightTime <= 0) return null;
+    final ppmAtJumpDepth = _getPixelsPerMeterAtDepth(jumpMidY);
+    if (ppmAtJumpDepth == null) return null;
 
-    const double g = 9.81;
-    final double velocityX = horizontalDistance / flightTime;
-    final double initialVerticalVelocity =
-        (0.5 * g * flightTime * flightTime - startHeight) / flightTime;
-    final double jumpHeight =
-        (initialVerticalVelocity * initialVerticalVelocity) / (2 * g);
-    final double finalVerticalVelocity =
-        initialVerticalVelocity - (g * flightTime);
+    final jumpDistancePx = (waterEntry.dx - jumpStartPoint.dx).abs();
+    final jumpDistanceMeters = jumpDistancePx / ppmAtJumpDepth;
+
+    // 2. Calculate flight time from marked events
+    final flightTimeDuration =
+        _markedTimestamps[OffTheBlockEvent.touchedWater]! -
+            _markedTimestamps[OffTheBlockEvent.leftBlock]!;
+    final flightTimeSeconds = flightTimeDuration.inMilliseconds / 1000.0;
+
+    if (flightTimeSeconds <= 0) return null;
+
+    // 3. Calculate horizontal velocity
+    final horizontalVelocity = jumpDistanceMeters / flightTimeSeconds;
 
     return {
-      'jumpHeight': jumpHeight,
-      'entryVelocityX': velocityX,
-      'entryVelocityY': finalVerticalVelocity,
+      'jumpDistance': jumpDistanceMeters,
+      'flightTime': flightTimeSeconds,
+      'horizontalVelocity': horizontalVelocity,
+      'pixelsPerMeter': ppmAtJumpDepth,
     };
   }
 
@@ -747,28 +753,66 @@ class _OffTheBlockAnalysisPageState extends State<OffTheBlockAnalysisPage> {
       });
     });
   }
+  void _clearMeasurement() {
+    setState(() {
+      _measurementPoints.clear();
+      _measurementStep = 0;
+      _draggedPointIndex = null;
+    });
+  }
 
-  // NEW: live preview meters while user drags points (no state changes)
+  // Calculates the scale (pixels per meter) at a given vertical depth (y-coordinate)
+// using linear interpolation between the two 5m reference markers.
+  double? _getPixelsPerMeterAtDepth(double y) {
+    if (_measurementPoints.length < 4) return null;
+
+    // Ensure points are sorted by y-value to correctly identify near/far ropes
+    final ropes = [
+      {
+        'y': (_measurementPoints[0].dy + _measurementPoints[1].dy) / 2,
+        'dist': (_measurementPoints[0] - _measurementPoints[1]).distance
+      },
+      {
+        'y': (_measurementPoints[2].dy + _measurementPoints[3].dy) / 2,
+        'dist': (_measurementPoints[2] - _measurementPoints[3]).distance
+      }
+    ];
+    ropes.sort((a, b) => (a['y'] as double).compareTo(b['y'] as double));
+
+    final yFar = ropes[0]['y'] as double;
+    final yNear = ropes[1]['y'] as double;
+    final distFar = ropes[0]['dist'] as double;
+    final distNear = ropes[1]['dist'] as double;
+
+    if (distFar == 0 || distNear == 0 || yNear == yFar) return null;
+
+    final ppmFar = distFar / 5.0;
+    final ppmNear = distNear / 5.0;
+
+    // Linear interpolation/extrapolation for ppm at depth y
+    final slope = (ppmNear - ppmFar) / (yNear - yFar);
+    final ppmAtY = ppmFar + slope * (y - yFar);
+
+    return ppmAtY > 0 ? ppmAtY : null;
+  }
+
+
+// Provides a live preview of the jump distance as the user marks points.
   double? _previewJumpMeters() {
     if (_measurementPoints.length < 6) return null;
 
-    final leftA = _measurementPoints[0];
-    final leftB = _measurementPoints[1];
-    final rightA = _measurementPoints[2];
-    final rightB = _measurementPoints[3];
+    final jumpStart = _measurementPoints[4];
+    final jumpEnd = _measurementPoints[5];
+    final jumpY = (jumpStart.dy + jumpEnd.dy) / 2;
 
-    final start = _measurementPoints[4];
-    final entry = _measurementPoints[5];
+    final ppm = _getPixelsPerMeterAtDepth(jumpY);
+    if (ppm == null) return null;
 
-    final ppmLeft = (leftA - leftB).distance / 5.0;
-    final ppmRight = (rightA - rightB).distance / 5.0;
-    final pixelsPerMeter = (ppmLeft + ppmRight) / 2.0;
-    if (pixelsPerMeter <= 0) return null;
+    // The jump is primarily horizontal in this camera view.
+    final jumpDistancePx = (jumpEnd.dx - jumpStart.dx).abs();
 
-    final jumpPixels = (entry - start).distance;
-    return jumpPixels / pixelsPerMeter;
+    return jumpDistancePx / ppm;
   }
-
   Widget _buildActionButtons() {
     final allEventsMarked = OffTheBlockEvent.values
         .every((event) => _markedTimestamps.containsKey(event));

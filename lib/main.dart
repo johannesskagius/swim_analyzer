@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_analytics/firebase_analytics.dart';
@@ -7,6 +8,7 @@ import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:purchases_flutter/purchases_flutter.dart';
 import 'package:swim_analyzer/analysis/stroke/stroke_analysis_repository.dart';
 import 'package:swim_analyzer/theme_provider.dart';
 import 'package:swim_apps_shared/auth_service.dart';
@@ -21,6 +23,28 @@ void main() async {
     WidgetsFlutterBinding.ensureInitialized();
     await Firebase.initializeApp(
         options: DefaultFirebaseOptions.currentPlatform);
+
+    // --- RevenueCat Initialization ---
+    // Set the debug log level for development.
+    await Purchases.setLogLevel(kDebugMode ? LogLevel.debug : LogLevel.info);
+
+    // Configure the Purchases SDK with your public API keys from RevenueCat.
+    // TODO: Replace with your actual keys from your RevenueCat account.
+    PurchasesConfiguration configuration;
+
+    if (Platform.isIOS) {
+      configuration =
+          PurchasesConfiguration('appl_JtAuGFwkhYjDnbaUJhWhscOZzSW');
+    } else if (Platform.isAndroid) {
+      //configuration =
+      //   PurchasesConfiguration('goog_YOUR_REVENUECAT_PUBLIC_API_KEY');
+      throw UnsupportedError('Platform not supported for in-app purchases');
+    } else {
+      // Handle unsupported platforms.
+      throw UnsupportedError('Platform not supported for in-app purchases');
+    }
+    await Purchases.configure(configuration);
+    // --- End RevenueCat Initialization ---
 
     // Pass all uncaught "fatal" errors from the framework to Crashlytics.
     FlutterError.onError = FirebaseCrashlytics.instance.recordFlutterFatalError;

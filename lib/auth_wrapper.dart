@@ -3,42 +3,37 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:purchases_flutter/purchases_flutter.dart';
 import 'package:swim_analyzer/home_page.dart';
+import 'package:swim_analyzer/paywall_page.dart';
 import 'package:swim_analyzer/sign_in_page.dart';
 import 'package:swim_apps_shared/swim_apps_shared.dart';
 
-/// Determines whether to show the sign-in page or the main app content
-/// based on the user's authentication state.
 class AuthWrapper extends StatelessWidget {
   const AuthWrapper({super.key});
 
   @override
   Widget build(BuildContext context) {
-    // StreamBuilder listens to authentication state changes from Firebase.
     return StreamBuilder<User?>(
       stream: FirebaseAuth.instance.authStateChanges(),
       builder: (context, authSnapshot) {
-        // While waiting for the initial auth state, show a loading screen.
         if (authSnapshot.connectionState == ConnectionState.waiting) {
           return const _LoadingScreen();
         }
 
-        // If the snapshot has user data, the user is authenticated.
         if (authSnapshot.hasData) {
-          // Now that we know the user is authenticated, we fetch their profile data.
-          // We use a ValueKey to ensure this widget rebuilds if the user ID changes.
+          // User is authenticated with Firebase
           return _ProfileLoader(key: ValueKey(authSnapshot.data!.uid));
         }
 
-        // If there's no user data, show the sign-in page.
+        // User is not authenticated, log them out of RevenueCat too.
+        Purchases.logOut();
         return const SignInPage();
       },
     );
   }
 }
 
-/// A helper widget to handle the logic of loading the user profile after authentication.
-/// This cleans up the main AuthWrapper's build method.
 class _ProfileLoader extends StatelessWidget {
   const _ProfileLoader({super.key});
 
@@ -49,61 +44,131 @@ class _ProfileLoader extends StatelessWidget {
     return FutureBuilder<AppUser?>(
       future: userRepository.getMyProfile(),
       builder: (context, profileSnapshot) {
-        // While the profile data is loading, continue showing the loading screen.
         if (profileSnapshot.connectionState == ConnectionState.waiting) {
-          return const _LoadingScreen();
+          return const _LoadingScreen(message: 'Loading profile...');
         }
 
-        // If there's an error or no profile data is found, it's an invalid state.
         if (profileSnapshot.hasError || !profileSnapshot.hasData) {
-          // Log the specific error to Crashlytics for debugging.
-          if (profileSnapshot.hasError) {
-            FirebaseCrashlytics.instance.recordError(
-              profileSnapshot.error,
-              profileSnapshot.stackTrace,
-              reason: 'Failed to load user profile from repository.',
-              fatal: false, // It's a handled error, not a crash.
-            );
-          } else {
-            // Log the case where the profile document might be missing.
-            FirebaseCrashlytics.instance.log(
-                'User is authenticated but no profile data was found in the repository. Forcing sign-out.');
-          }
-
-          // The safest action is to sign the user out to return them to the sign-in flow.
+          FirebaseCrashlytics.instance.recordError(
+            profileSnapshot.error,
+            profileSnapshot.stackTrace,
+            reason: 'Failed to load user profile.',
+          );
+          // If profile fails to load, sign out to prevent an invalid state.
           WidgetsBinding.instance.addPostFrameCallback((_) {
             FirebaseAuth.instance.signOut();
           });
-
           return const _LoadingScreen();
         }
 
-        // If profile data is successfully loaded, link it to our analytics.
         final appUser = profileSnapshot.requireData!;
 
-        // --- Set User Identifiers for Analytics and Crashlytics ---
-        FirebaseCrashlytics.instance.setUserIdentifier(appUser.id);
-        FirebaseAnalytics.instance.setUserId(id: appUser.id);
-
-        // --- Set a custom property for filtering in Analytics ---
-        FirebaseAnalytics.instance
-            .setUserProperty(name: 'user_type', value: appUser.userType.name);
-
-        return HomePage(appUser: appUser);
+        // Profile loaded, now check for an active subscription.
+        return _SubscriptionWrapper(appUser: appUser);
       },
     );
   }
 }
 
-/// A simple, reusable loading screen.
-class _LoadingScreen extends StatelessWidget {
-  const _LoadingScreen();
+// New widget to handle RevenueCat subscription logic.
+class _SubscriptionWrapper extends StatefulWidget {
+  final AppUser appUser;
+  const _SubscriptionWrapper({required this.appUser});
+
+  @override
+  State<_SubscriptionWrapper> createState() => _SubscriptionWrapperState();
+}
+
+class _SubscriptionWrapperState extends State<_SubscriptionWrapper> {
+  // This future holds the result of our subscription check.
+  late final Future<bool> _hasActiveSubscriptionFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _hasActiveSubscriptionFuture = _checkSubscriptionStatus();
+  }
+
+  Future<bool> _checkSubscriptionStatus() async {
+    try {
+      // Log in to RevenueCat with the user's unique ID.
+      await Purchases.logIn(widget.appUser.id);
+
+      // Get the latest customer info.
+      final CustomerInfo customerInfo = await Purchases.getCustomerInfo();
+
+      // Check if the user has an active entitlement in RevenueCat.
+      // TODO: Replace 'pro_swimmer' and 'pro_coach' with your actual Entitlement IDs.
+      final hasProSwimmer =
+          customerInfo.entitlements.active.containsKey('pro_swimmer');
+      final hasProCoach =
+          customerInfo.entitlements.active.containsKey('pro_coach');
+
+      return hasProSwimmer || hasProCoach;
+    } catch (e, s) {
+      FirebaseCrashlytics.instance.recordError(
+        e,
+        s,
+        reason: 'RevenueCat subscription check failed',
+      );
+      // If the check fails, deny access as a safe default.
+      return false;
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
-    return const Scaffold(
+    return FutureBuilder<bool>(
+      future: _hasActiveSubscriptionFuture,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const _LoadingScreen(message: 'Verifying subscription...');
+        }
+
+        // Handle potential errors during the future execution.
+        if (snapshot.hasError) {
+          FirebaseCrashlytics.instance.recordError(
+            snapshot.error,
+            snapshot.stackTrace,
+            reason: 'Subscription check FutureBuilder failed',
+          );
+          // Show paywall on error as a safe fallback.
+          return PaywallPage(appUser: widget.appUser);
+        }
+
+        final hasActiveSubscription = snapshot.data ?? false;
+
+        if (hasActiveSubscription) {
+          // User has an active subscription, grant access to the app.
+          return HomePage(appUser: widget.appUser);
+        } else {
+          // User does not have an active subscription, show the paywall.
+          return PaywallPage(appUser: widget.appUser);
+        }
+      },
+    );
+  }
+}
+
+/// A simple, reusable loading screen with an optional message.
+class _LoadingScreen extends StatelessWidget {
+  final String? message;
+  const _LoadingScreen({this.message});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
       body: Center(
-        child: CircularProgressIndicator(),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const CircularProgressIndicator(),
+            if (message != null) ...[
+              const SizedBox(height: 20),
+              Text(message!),
+            ]
+          ],
+        ),
       ),
     );
   }

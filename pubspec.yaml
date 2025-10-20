@@ -17,7 +17,7 @@ dependencies:
   firebase_core: ^4.1.1
   cloud_firestore: ^6.0.2
   firebase_auth: ^6.1.0
-  provider: ^6.1.2 # Added provider
+  provider: ^6.1.2
   intl: ^0.20.2
   package_info_plus: ^9.0.0
   shared_preferences: ^2.2.3
@@ -30,20 +30,14 @@ dependencies:
   tflite_flutter: ^0.11.0
   image: ^4.1.7
   video_thumbnail: ^0.5.6
+  firebase_analytics: ^12.0.3
+  firebase_crashlytics: ^5.0.3
+  purchases_flutter: ^9.8.0
 
-    #ffmpeg_kit_flutter_new: ^3.1.9
-   #Switch to a path dependency for local development
   swim_apps_shared:
     git:
       url: git@github.com:johannesskagius/swim_apps_shared.git
       ref: master
-  firebase_analytics: ^12.0.3
-  firebase_crashlytics: ^5.0.3
-  purchases_flutter: ^9.8.0
-      
-
-  #swim_apps_shared:
-  #  path: /Users/johannesskagius/Company/projects/swim_apps_shared/
 
 dev_dependencies:
   flutter_test:
@@ -52,5 +46,4 @@ dev_dependencies:
 flutter:
   uses-material-design: true
   assets:
-    - assets/models/
-
+    - assets/models/detect_5m_marks_v5.tflite

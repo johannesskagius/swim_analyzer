@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:math' as math;
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
@@ -691,59 +692,119 @@ class _OffTheBlockAnalysisPageState extends State<OffTheBlockAnalysisPage> {
   );
 
   Map<String, double>? _calculateJumpPhysics() {
-    // MODIFIED: Need 6 points for full calculation
+    // --- Guard Clauses ---
+    // Ensure necessary timestamps and measurement points exist
     if (_markedTimestamps[OffTheBlockEvent.leftBlock] == null ||
         _markedTimestamps[OffTheBlockEvent.touchedWater] == null ||
-        _measurementPoints.length < 6) {
+        _measurementPoints.length < 6) { // Need 6 points total now
+      debugPrint("Calculation failed: Missing timestamps or measurement points.");
       return null;
     }
 
-    // point[4] is the block edge
-    // point[5] is the water entry
-    final Offset jumpStart = _measurementPoints[4];
-    final Offset waterEntry = _measurementPoints[5];
-    final double jumpMidY = (jumpStart.dy + waterEntry.dy) / 2;
+    // --- Input Data Extraction ---
+    final Offset jumpStartPoint = _measurementPoints[4]; // Auto-calculated block edge
+    final Offset waterEntry = _measurementPoints[5];     // User-tapped water entry
+    final double flightTimeSeconds =
+        (_markedTimestamps[OffTheBlockEvent.touchedWater]! -
+            _markedTimestamps[OffTheBlockEvent.leftBlock]!)
+            .inMilliseconds / 1000.0;
 
+    // Avoid division by zero or nonsensical times
+    if (flightTimeSeconds <= 0) {
+      debugPrint("Calculation failed: Invalid flight time ($flightTimeSeconds s).");
+      return null;
+    }
+
+    // --- Pixels Per Meter Calculation ---
+    // Calculate PPM at the average Y depth of the 2D jump line
+    final double jumpMidY = (jumpStartPoint.dy + waterEntry.dy) / 2.0;
     final ppmAtJumpDepth = _getPixelsPerMeterAtDepth(jumpMidY);
-    if (ppmAtJumpDepth == null) return null;
+    if (ppmAtJumpDepth == null || ppmAtJumpDepth <= 0) {
+      debugPrint("Calculation failed: Could not determine PPM at depth $jumpMidY.");
+      return null;
+    }
 
-    final jumpDistancePx = (waterEntry - jumpStart).distance;
-    final jumpDistanceMeters = jumpDistancePx / ppmAtJumpDepth;
+    // --- Core Metrics ---
+    // Calculate 2D distance in pixels and meters
+    final double jumpDistancePx = (waterEntry - jumpStartPoint).distance;
+    final double jumpDistanceMeters = jumpDistancePx / ppmAtJumpDepth;
 
-    // Flight time
-    final flightTimeDuration =
-        _markedTimestamps[OffTheBlockEvent.touchedWater]! -
-            _markedTimestamps[OffTheBlockEvent.leftBlock]!;
-    final flightTimeSeconds = flightTimeDuration.inMilliseconds / 1000.0;
+    // Calculate average horizontal velocity (constant vx, ignoring air resistance)
+    final double horizontalVelocity = jumpDistanceMeters / flightTimeSeconds;
 
-    if (flightTimeSeconds <= 0) return null; // Avoid division by zero
+    // --- Vertical Motion Calculation ---
+    const double gravity = 9.81; // m/s^2
 
-    final horizontalVelocity = jumpDistanceMeters / flightTimeSeconds;
+    // Calculate initial vertical velocity (vy0) using standard kinematic equation:
+    // y_final = y_initial + vy0*t + 0.5*a*t^2
+    // 0 = startHeight + vy0*flightTimeSeconds - 0.5*gravity*flightTimeSeconds^2
+    final double initialVerticalVelocity = (0.5 * gravity * math.pow(flightTimeSeconds, 2) - startHeight) / flightTimeSeconds;
 
-    // --- VERTICAL VELOCITY & MAX HEIGHT CALCS ---
-    const double gravity = 9.81;
-    // Calculate initial vertical velocity (vy0)
-    final initialVerticalVelocity = (0.5 * gravity * flightTimeSeconds * flightTimeSeconds - startHeight) / flightTimeSeconds;
+    // --- Trajectory Peak Calculation (Corrected) ---
+    double maxJumpHeight = 0.0;          // Height above block
+    double timeToPeakHeight = 0.0;       // Time after leaving block
+    double distanceToPeakHeight = 0.0;   // Horizontal distance from block
 
-    // Calculate max height above the block
-    final maxHeightAboveWater = startHeight + (initialVerticalVelocity * initialVerticalVelocity) / (2 * gravity);
-    final maxJumpHeight = maxHeightAboveWater - startHeight;
+    // Only calculate a peak if the swimmer is initially moving UPWARDS (vy0 > 0)
+    if (initialVerticalVelocity > 0) {
+      // Time to peak (when vertical velocity becomes 0): t_peak = vy0 / g
+      timeToPeakHeight = initialVerticalVelocity / gravity;
+      // Calculate max height above water using: y_max = y0 + vy0*t_peak + 0.5*a*t_peak^2
+      final maxHeightAboveWater = startHeight + initialVerticalVelocity * timeToPeakHeight - 0.5 * gravity * math.pow(timeToPeakHeight, 2);
+      // Max height above block
+      maxJumpHeight = maxHeightAboveWater - startHeight;
+      // Horizontal distance covered to reach peak: d_peak = vx * t_peak
+      distanceToPeakHeight = horizontalVelocity * timeToPeakHeight;
+    }
+    // Otherwise, the peak height *above the block* is 0, and time/distance to peak are 0.
 
-    // --- NEW: ENTRY VELOCITY COMPONENTS ---
-    // Horizontal velocity at entry (same as average horizontal, ignoring air resistance)
-    final entryVelocityX = horizontalVelocity;
-    // Vertical velocity at entry (vy = vy0 - g*t)
-    final entryVelocityY = initialVerticalVelocity - gravity * flightTimeSeconds;
-    // --- END NEW ---
+    // --- Entry Velocity Calculation ---
+    // Horizontal velocity at entry (vx remains constant)
+    final double entryVelocityX = horizontalVelocity;
+    // Vertical velocity at entry using: vy_final = vy0 + a*t
+    final double entryVelocityY = initialVerticalVelocity - gravity * flightTimeSeconds;
 
+    // --- Speed and Angle Calculations ---
+    // Initial speed (magnitude of initial velocity vector)
+    final double initialVelocityMagnitude = math.sqrt(math.pow(horizontalVelocity, 2) + math.pow(initialVerticalVelocity, 2));
+    // Launch angle relative to horizontal (degrees)
+    final double launchAngle = math.atan2(initialVerticalVelocity, horizontalVelocity) * (180 / math.pi); // Use atan2 for quadrant correctness
+    // Entry speed (magnitude of entry velocity vector)
+    final double entryVelocityMagnitude = math.sqrt(math.pow(entryVelocityX, 2) + math.pow(entryVelocityY, 2));
+    // Entry angle relative to horizontal (degrees)
+    final double entryAngleHorizontal = math.atan2(entryVelocityY, entryVelocityX) * (180 / math.pi); // Use atan2
+    // Entry angle relative to water surface (degrees)
+    final double entryAngleWater = 90.0 - entryAngleHorizontal.abs();
+
+
+    // --- Result Map ---
     return {
+      // Core Metrics
       'jumpDistance': jumpDistanceMeters,
       'flightTime': flightTimeSeconds,
+      'maxJumpHeight': maxJumpHeight, // Corrected
+
+      // Velocity Components
       'horizontalVelocity': horizontalVelocity,
+      'initialVerticalVelocity': initialVerticalVelocity,
+      'entryVelocityX': entryVelocityX,
+      'entryVelocityY': entryVelocityY,
+
+      // Magnitudes (Speed)
+      'initialVelocityMagnitude': initialVelocityMagnitude,
+      'entryVelocityMagnitude': entryVelocityMagnitude,
+
+      // Angles (relative to horizontal/water)
+      'launchAngle': launchAngle,
+      'entryAngleHorizontal': entryAngleHorizontal,
+      'entryAngleWater': entryAngleWater,
+
+      // Trajectory Shape Metrics
+      'timeToPeakHeight': timeToPeakHeight, // Corrected
+      'distanceToPeakHeight': distanceToPeakHeight, // Corrected
+
+      // Reference
       'pixelsPerMeter': ppmAtJumpDepth,
-      'maxJumpHeight': maxJumpHeight,
-      'entryVelocityX': entryVelocityX, // Added X component
-      'entryVelocityY': entryVelocityY, // Added Y component (will be negative)
     };
   }
 

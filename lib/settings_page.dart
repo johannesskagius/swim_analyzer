@@ -71,8 +71,8 @@ class _SettingsPageState extends State<SettingsPage> {
     return identifier
         .split('_')
         .map((word) => word.isNotEmpty
-            ? '${word[0].toUpperCase()}${word.substring(1)}'
-            : '')
+        ? '${word[0].toUpperCase()}${word.substring(1)}'
+        : '')
         .join(' ');
   }
 
@@ -141,6 +141,66 @@ class _SettingsPageState extends State<SettingsPage> {
           ),
         ],
       ),
+    );
+  }
+
+  /// --- NEW: Fetches and displays the coach's name ---
+  Widget _buildCoachInfo(String coachId) {
+    // Use the UserRepository from the provider to fetch user details.
+    final userRepository = context.read<UserRepository>();
+    return FutureBuilder<AppUser?>(
+      future: userRepository.getUserDocument(coachId),
+      builder: (context, snapshot) {
+        String coachName = 'Loading...';
+        if (snapshot.connectionState == ConnectionState.done) {
+          if (snapshot.hasData && snapshot.data != null) {
+            coachName = snapshot.data!.name;
+          } else {
+            coachName = 'Not available';
+            // Log if the coach's profile can't be fetched.
+            FirebaseCrashlytics.instance.recordError(
+              snapshot.error ?? 'Coach not found for id $coachId',
+              snapshot.stackTrace,
+              reason: 'Failed to fetch coach profile in SettingsPage',
+            );
+          }
+        }
+        return ListTile(
+          leading: const Icon(Icons.person_search_outlined),
+          title: const Text('Coach'),
+          subtitle: Text(coachName),
+        );
+      },
+    );
+  }
+
+  /// --- NEW: Fetches and displays the club's name ---
+  Widget _buildClubInfo(String clubId) {
+    // Use the ClubRepository from the provider to fetch club details.
+    final clubRepository = context.read<ClubRepository>();
+    return FutureBuilder<SwimClub?>(
+      future: clubRepository.getClub(clubId),
+      builder: (context, snapshot) {
+        String clubName = 'Loading...';
+        if (snapshot.connectionState == ConnectionState.done) {
+          if (snapshot.hasData && snapshot.data != null) {
+            clubName = snapshot.data!.name;
+          } else {
+            clubName = 'Not available';
+            // Log if the club's details can't be fetched.
+            FirebaseCrashlytics.instance.recordError(
+              snapshot.error ?? 'Club not found for id $clubId',
+              snapshot.stackTrace,
+              reason: 'Failed to fetch club details in SettingsPage',
+            );
+          }
+        }
+        return ListTile(
+          leading: const Icon(Icons.pool_outlined),
+          title: const Text('Club'),
+          subtitle: Text(clubName),
+        );
+      },
     );
   }
 
@@ -261,7 +321,7 @@ class _SettingsPageState extends State<SettingsPage> {
             leading: CircleAvatar(
               backgroundColor: Theme.of(context).colorScheme.primary,
               child:
-                  Text(user.name.isNotEmpty ? user.name[0].toUpperCase() : '?'),
+              Text(user.name.isNotEmpty ? user.name[0].toUpperCase() : '?'),
             ),
             title: Text(user.name),
             subtitle: Text('${user.email} • $role'),
@@ -270,6 +330,8 @@ class _SettingsPageState extends State<SettingsPage> {
               MaterialPageRoute(builder: (_) => ProfilePage(appUser: user)),
             ),
           ),
+          if (user.clubId?.isNotEmpty == true) _buildClubInfo(user.clubId!),
+          // Show "My Swimmers" for coaches
           if (user.userType == UserType.coach)
             ListTile(
               leading: const Icon(Icons.group_outlined),
@@ -279,8 +341,16 @@ class _SettingsPageState extends State<SettingsPage> {
                 MaterialPageRoute(builder: (_) => const MySwimmersPage()),
               ),
             ),
+          // --- MODIFIED: Show Coach and Club for Swimmers ---
+          if (user.userType == UserType.swimmer) ...[
+            // Fetch and display Coach Name
+            if (user.creatorId?.isNotEmpty == true)
+              _buildCoachInfo(user.creatorId!),
 
-          // --- NEW: Add the subscription section here ---
+            // Fetch and display Club Name
+          ],
+
+          // --- Subscription Section ---
           const Divider(height: 24),
           _buildSectionHeader('Subscription',
               icon: Icons.workspace_premium_outlined),

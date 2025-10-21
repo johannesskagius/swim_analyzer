@@ -93,6 +93,10 @@ class MyApp extends StatelessWidget {
           create: (_) =>
               StrokeAnalysisRepository(firestore: FirebaseFirestore.instance),
         ),
+        Provider<ClubRepository>(
+          create: (_) =>
+              ClubRepository(FirebaseFirestore.instance),
+        ),
         // Provide the FirebaseAnalytics instance to the widget tree
         Provider<FirebaseAnalytics>.value(value: analytics),
       ],

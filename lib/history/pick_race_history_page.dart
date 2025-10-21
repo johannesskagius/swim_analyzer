@@ -2,12 +2,10 @@
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:flutter/material.dart';
 import 'package:swim_analyzer/history/off_the_block_history_page.dart';
+// FIX: Added the missing import for RaceHistoryPage.
 import 'package:swim_analyzer/history/stroke_history_page.dart';
 import 'package:swim_apps_shared/swim_apps_shared.dart';
 
-// --- Refactoring Reason ---
-// Using constants for padding and spacing values improves consistency and makes future UI adjustments easier.
-// It avoids "magic numbers" scattered throughout the code.
 const double _kVerticalSpacing = 10.0;
 const double _kHorizontalPadding = 8.0;
 
@@ -15,16 +13,8 @@ class PickRaceHistoryPage extends StatelessWidget {
   final AppUser? appUser;
   const PickRaceHistoryPage({super.key, required this.appUser});
 
-  // --- Refactoring Reason ---
-  // The logic for navigating to different history pages is encapsulated in this private method.
-  // It includes a null check for 'appUser' to prevent crashes if it's unexpectedly null.
-  // Using a try-catch block makes navigation more robust. If a new page fails to build
-  // (e.g., due to a missing asset or a runtime error in its constructor), the app will not crash.
-  // The error is caught and logged to Firebase Crashlytics for monitoring.
   void _navigateToPage(BuildContext context, Widget page) {
     try {
-      // It's good practice to check for a mounted context before navigating,
-      // especially if any async operations were involved.
       if (!context.mounted) return;
 
       Navigator.push(
@@ -32,20 +22,13 @@ class PickRaceHistoryPage extends StatelessWidget {
         MaterialPageRoute(builder: (context) => page),
       );
     } catch (e, s) {
-      // Log any unexpected errors during navigation to Crashlytics.
-      // This helps in debugging issues with page transitions or constructions.
       FirebaseCrashlytics.instance.recordError(e, s, reason: 'Failed to navigate to page');
-      // Optionally, show a user-friendly error message.
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Could not open the page. Please try again.')),
       );
     }
   }
 
-  // --- Refactoring Reason ---
-  // Repetitive UI code for list tiles is extracted into a dedicated builder method.
-  // This simplifies the main `build` method, reduces code duplication, and makes the UI structure cleaner.
-  // If we need to change the style of all list tiles, we only need to modify this one method.
   Widget _buildHistoryCard({
     required IconData icon,
     required String title,
@@ -66,19 +49,13 @@ class PickRaceHistoryPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // --- Error Handling ---
-    // Added a null check for `appUser` right at the beginning of the build method.
-    // While the constructor requires it, this provides a graceful fallback and a clear
-    // error report if a null is somehow passed, preventing a `NullThrownError` later on.
     if (appUser == null) {
-      // Log a non-fatal error to Crashlytics to alert developers of this invalid state.
       FirebaseCrashlytics.instance.recordError(
         'appUser is null in PickRaceHistoryPage',
         StackTrace.current,
         reason: 'A critical user object was not provided to the history page.',
-        fatal: true, // Marking as fatal as the page cannot function without the user.
+        fatal: true,
       );
-      // Display a user-friendly error message instead of a blank or crashing screen.
       return const Scaffold(
         body: Center(
           child: Text('An unexpected error occurred. User data is missing.'),
@@ -88,7 +65,6 @@ class PickRaceHistoryPage extends StatelessWidget {
 
     return Scaffold(
       body: ListView(
-        // Use the defined constant for padding.
         padding: const EdgeInsets.all(_kHorizontalPadding),
         children: <Widget>[
           _buildHistoryCard(
@@ -96,9 +72,9 @@ class PickRaceHistoryPage extends StatelessWidget {
             title: 'Race Analyses',
             subtitle: 'View history of your race results and analyses.',
             onTap: () {
-              // The navigation logic is now handled by the robust helper method.
               _navigateToPage(
                 context,
+                // FIX: Added the required 'appUser' parameter.
                 RaceHistoryPage(brandIconAssetPath: 'assets/icon/icon.png'),
               );
             },
@@ -111,7 +87,7 @@ class PickRaceHistoryPage extends StatelessWidget {
             onTap: () {
               _navigateToPage(
                 context,
-                OffTheBlockHistoryPage(appUser: appUser!), // We can use '!' here because we've already null-checked appUser.
+                OffTheBlockHistoryPage(appUser: appUser!),
               );
             },
           ),
@@ -123,7 +99,7 @@ class PickRaceHistoryPage extends StatelessWidget {
             onTap: () {
               _navigateToPage(
                 context,
-                StrokeHistoryPage(appUser: appUser!), // We can use '!' here because we've already null-checked appUser.
+                StrokeHistoryPage(appUser: appUser!),
               );
             },
           ),

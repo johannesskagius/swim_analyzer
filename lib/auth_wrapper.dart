@@ -1,6 +1,5 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:purchases_flutter/purchases_flutter.dart';
@@ -117,20 +116,29 @@ class _SubscriptionWrapperState extends State<_SubscriptionWrapper> {
 
       final CustomerInfo customerInfo = await Purchases.getCustomerInfo();
 
+      // --- FIX: Use the correct, consistent entitlement identifiers ---
       final hasProSwimmer =
-      customerInfo.entitlements.active.containsKey('entldd89ea41a6');
+          customerInfo.entitlements.active.containsKey('Swimmer subscription');
       final hasProCoach =
-      customerInfo.entitlements.active.containsKey('entlb23409183b');
+          customerInfo.entitlements.active.containsKey('Coach subscription');
 
-      if (kDebugMode) {
-        print('Active Entitlements: ${customerInfo.entitlements.active.keys}');
-      }
+      debugPrint(
+          'Active Entitlements: ${customerInfo.entitlements.active.keys}');
+      debugPrint(
+          'Active Entitlements: ${customerInfo.entitlements.active}');
 
-      return PermissionLevel(
+      var permissionLevel = PermissionLevel(
         appUser: widget.appUser,
         hasSwimmerSubscription: hasProSwimmer,
         hasCoachSubscription: hasProCoach,
       );
+
+      debugPrint(
+          'Has active subscription: ${permissionLevel.hasActiveSubscription.toString()}');
+      debugPrint(
+          'Has coach subscription: ${permissionLevel.hasCoachSubscription.toString()}');
+
+      return permissionLevel;
     } catch (e, s) {
       FirebaseCrashlytics.instance.recordError(
         e,

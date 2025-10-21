@@ -41,7 +41,7 @@ class _OffTheBlockAnalysisPageState extends State<OffTheBlockAnalysisPage> {
   static const double _pixelsPerSecond = 150.0;
 
   final TransformationController _transformationController =
-      TransformationController();
+  TransformationController();
 
   bool _isMeasuring = false;
   int _measurementStep = 0;
@@ -133,13 +133,13 @@ class _OffTheBlockAnalysisPageState extends State<OffTheBlockAnalysisPage> {
       double scaleDisplayY = displayHeight / videoHeight;
 
       final leftStartDisplay =
-          Offset(leftStart.dx * scaleDisplayX, leftStart.dy * scaleDisplayY);
+      Offset(leftStart.dx * scaleDisplayX, leftStart.dy * scaleDisplayY);
       final leftEndDisplay =
-          Offset(leftEnd.dx * scaleDisplayX, leftEnd.dy * scaleDisplayY);
+      Offset(leftEnd.dx * scaleDisplayX, leftEnd.dy * scaleDisplayY);
       final rightStartDisplay =
-          Offset(rightStart.dx * scaleDisplayX, rightStart.dy * scaleDisplayY);
+      Offset(rightStart.dx * scaleDisplayX, rightStart.dy * scaleDisplayY);
       final rightEndDisplay =
-          Offset(rightEnd.dx * scaleDisplayX, rightEnd.dy * scaleDisplayY);
+      Offset(rightEnd.dx * scaleDisplayX, rightEnd.dy * scaleDisplayY);
 
       setState(() {
         _measurementPoints
@@ -150,7 +150,16 @@ class _OffTheBlockAnalysisPageState extends State<OffTheBlockAnalysisPage> {
             rightStartDisplay,
             rightEndDisplay,
           ]);
-        _measurementStep = 4;
+        _measurementStep = 4; // Ready for auto-calc
+
+        // --- AUTO-ADD START BLOCK POINT ---
+        final autoY =
+            (leftStartDisplay.dy + rightStartDisplay.dy) / 2.0;
+        final autoX =
+            (leftStartDisplay.dx + rightStartDisplay.dx) / 2.0;
+
+        _measurementPoints.add(Offset(autoX, autoY)); // This is points[4]
+        _measurementStep = 5; // Ready for final tap
       });
 
       // 8️⃣ Show a brief summary
@@ -232,23 +241,28 @@ class _OffTheBlockAnalysisPageState extends State<OffTheBlockAnalysisPage> {
 
   String _getMeasurementInstruction() {
     if (_draggedPointIndex != null) {
-      return 'Drag the handle to reposition the point';
+      if (_draggedPointIndex! < 4) {
+        return 'Drag the handle to reposition the point'; // Lane marks
+      }
+      // This is now index 5, the Water (Entry) point
+      return 'Drag to set position (free movement)';
     }
     switch (_measurementStep) {
       case 0:
-        return '1/6: Tap start of 5m marker on LEFT lane rope';
+        return '1/5: Tap start of 5m marker on LEFT lane rope';
       case 1:
-        return '2/6: Tap end of 5m marker on LEFT lane rope';
+        return '2/5: Tap end of 5m marker on LEFT lane rope';
       case 2:
-        return '3/6: Tap start of 5m marker on RIGHT lane rope';
+        return '3/5: Tap start of 5m marker on RIGHT lane rope';
       case 3:
-        return '4/6: Tap end of 5m marker on RIGHT lane rope';
+        return '4/5: Tap end of 5m marker on RIGHT lane rope';
       case 4:
-        return '5/6: Tap the edge of the start block';
+      // This step is now skipped as Start (Block) is auto-added
+        return 'Calculating block position...';
       case 5:
-        return "6/6: Tap where the swimmer enters the water";
+        return '5/5: Tap where swimmer ENTERS THE WATER (free tap)';
       default:
-        return "Use the handles to adjust the points for accuracy.";
+        return "Use the handles to adjust the points.";
     }
   }
 
@@ -274,20 +288,28 @@ class _OffTheBlockAnalysisPageState extends State<OffTheBlockAnalysisPage> {
     return "$minutes:$seconds";
   }
 
+  // --------------------------------------------------------------------------
+  // 🧠 AI & MEASUREMENT HELPERS (NEW)
+  // --------------------------------------------------------------------------
+
+
+  // --- DELETED _getExtrapolatedLaneBoundaries and _getCenterlineX ---
+  // They are no longer needed for the new logic.
+
   Widget _buildVideoSelectionPrompt() => Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: const [
-            Icon(Icons.video_library_outlined, size: 80, color: Colors.grey),
-            SizedBox(height: 16),
-            Text(
-              'Please select a video of a start to begin.',
-              textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 16),
-            ),
-          ],
+    child: Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: const [
+        Icon(Icons.video_library_outlined, size: 80, color: Colors.grey),
+        SizedBox(height: 16),
+        Text(
+          'Please select a video of a start to begin.',
+          textAlign: TextAlign.center,
+          style: TextStyle(fontSize: 16),
         ),
-      );
+      ],
+    ),
+  );
 
   Widget _buildPrecisionScrubber() {
     if (_controller == null || !_controller!.value.isInitialized) {
@@ -315,8 +337,8 @@ class _OffTheBlockAnalysisPageState extends State<OffTheBlockAnalysisPage> {
                   _isScrubbing) {
                 final newPosition = Duration(
                     milliseconds:
-                        (notification.metrics.pixels / _pixelsPerSecond * 1000)
-                            .round());
+                    (notification.metrics.pixels / _pixelsPerSecond * 1000)
+                        .round());
                 _controller!.seekTo(newPosition);
               } else if (notification is ScrollEndNotification &&
                   _isScrubbing) {
@@ -369,31 +391,71 @@ class _OffTheBlockAnalysisPageState extends State<OffTheBlockAnalysisPage> {
       onInteractionEnd: null,
       child: GestureDetector(
         onTapUp: (details) {
+          // 1. Check guards
           if (!_isMeasuring ||
               _isPointDragInProgress ||
-              _measurementPoints.length >= 6) return;
+              _measurementPoints.length >= 6) {
+            return;
+          }
 
+          // 2. Get tap position in scene coordinates
           final sceneOffset =
-              _transformationController.toScene(details.localPosition);
+          _transformationController.toScene(details.localPosition);
+
+          // 3. Check for handle tap (to prevent adding a new point)
           for (int i = 0; i < _measurementPoints.length; i++) {
+            // Special case: DON'T allow tapping handle 4
+            if (i == 4) continue;
+
             final handleCenter = _measurementPoints[i] +
                 const Offset(0, MeasurementPainter.handleYOffset);
             if ((sceneOffset - handleCenter).distance <
                 MeasurementPainter.handleTouchRadius) {
-              return;
+              return; // User tapped a handle, do nothing.
             }
           }
-          setState(() {
-            _measurementPoints.add(sceneOffset);
-            _measurementStep++;
-          });
+
+          // 4. Determine the new point's position
+
+          if (_measurementStep < 3) {
+            // --- LOGIC FOR LANE MARKS (Steps 0, 1, 2) ---
+            setState(() {
+              _measurementPoints.add(sceneOffset);
+              _measurementStep++;
+            });
+          } else if (_measurementStep == 3) {
+            // --- LOGIC FOR 4th LANE MARK (Step 3) ---
+            setState(() {
+              _measurementPoints.add(sceneOffset); // This is points[3]
+              _measurementStep = 4; // Step is now 4
+
+              // --- AUTO-ADD START BLOCK POINT ---
+              final p0 = _measurementPoints[0];
+              final p2 = _measurementPoints[2];
+              final autoY = (p0.dy + p2.dy) / 2.0;
+              final autoX = (p0.dx + p2.dx) / 2.0;
+
+              _measurementPoints.add(Offset(autoX, autoY)); // This is points[4]
+              _measurementStep = 5; // Step is now 5
+            });
+          } else if (_measurementStep == 5) {
+            // --- LOGIC FOR WATER (ENTRY) (Step 5) ---
+            setState(() {
+              _measurementPoints.add(sceneOffset); // This is points[5]
+              _measurementStep = 6; // Step is now 6 (locked)
+            });
+          }
         },
         onPanStart: (details) {
           if (!_isMeasuring) return;
           final sceneOffset =
-              _transformationController.toScene(details.localPosition);
+          _transformationController.toScene(details.localPosition);
           int? hitIndex;
+
+          // Check all points EXCEPT index 4
           for (int i = _measurementPoints.length - 1; i >= 0; i--) {
+            if (i == 4) continue; // CANNOT drag point 4
+
             final handleCenter = _measurementPoints[i] +
                 const Offset(0, MeasurementPainter.handleYOffset);
             if ((sceneOffset - handleCenter).distance <
@@ -402,6 +464,7 @@ class _OffTheBlockAnalysisPageState extends State<OffTheBlockAnalysisPage> {
               break;
             }
           }
+
           if (hitIndex != null) {
             setState(() {
               _draggedPointIndex = hitIndex;
@@ -411,11 +474,18 @@ class _OffTheBlockAnalysisPageState extends State<OffTheBlockAnalysisPage> {
         },
         onPanUpdate: (details) {
           if (!_isPointDragInProgress || _draggedPointIndex == null) return;
+
+          // We've already guarded against _draggedPointIndex being 4 in onPanStart,
+          // so we only need one logic path.
+
           final sceneOffset =
-              _transformationController.toScene(details.localPosition);
+          _transformationController.toScene(details.localPosition);
+          final handleOffset = const Offset(0, MeasurementPainter.handleYOffset);
+
+          Offset newPointPosition = sceneOffset - handleOffset;
+
           setState(() {
-            _measurementPoints[_draggedPointIndex!] =
-                sceneOffset - const Offset(0, MeasurementPainter.handleYOffset);
+            _measurementPoints[_draggedPointIndex!] = newPointPosition;
           });
         },
         onPanEnd: (details) {
@@ -473,10 +543,10 @@ class _OffTheBlockAnalysisPageState extends State<OffTheBlockAnalysisPage> {
       if (startSignalTime != null) {
         final relativeTime = markedTime - startSignalTime;
         timeText =
-            '${(relativeTime.inMilliseconds / 1000.0).toStringAsFixed(2)}s';
+        '${(relativeTime.inMilliseconds / 1000.0).toStringAsFixed(2)}s';
       } else {
         timeText =
-            '${(markedTime.inMilliseconds / 1000.0).toStringAsFixed(2)}s (absolute)';
+        '${(markedTime.inMilliseconds / 1000.0).toStringAsFixed(2)}s (absolute)';
       }
     } else {
       timeText = 'Not marked';
@@ -487,7 +557,7 @@ class _OffTheBlockAnalysisPageState extends State<OffTheBlockAnalysisPage> {
       subtitle: Text(
         timeText,
         style:
-            TextStyle(color: markedTime != null ? Colors.green : Colors.grey),
+        TextStyle(color: markedTime != null ? Colors.green : Colors.grey),
       ),
       trailing: ElevatedButton(
         onPressed: () => _markEvent(event),
@@ -541,7 +611,7 @@ class _OffTheBlockAnalysisPageState extends State<OffTheBlockAnalysisPage> {
 
     try {
       final XFile? pickedFile =
-          await _picker.pickVideo(source: ImageSource.gallery);
+      await _picker.pickVideo(source: ImageSource.gallery);
       if (pickedFile == null) {
         setState(() => _isLoading = false);
         return;
@@ -572,93 +642,137 @@ class _OffTheBlockAnalysisPageState extends State<OffTheBlockAnalysisPage> {
   }
 
   Widget _buildOptionalStatsFields() => Column(
+    children: [
+      Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
-                child: TextFormField(
-                  controller: _startDistanceController,
-                  decoration: const InputDecoration(
-                    labelText: 'Start Distance (m)',
-                    border: OutlineInputBorder(),
-                  ),
-                  keyboardType:
-                      const TextInputType.numberWithOptions(decimal: true),
-                ),
+          Expanded(
+            child: TextFormField(
+              controller: _startDistanceController,
+              decoration: const InputDecoration(
+                labelText: 'Start Distance (m)',
+                border: OutlineInputBorder(),
               ),
-              const SizedBox(width: 8),
-              ElevatedButton(
-                onPressed: _controller != null
-                    ? () async {
-                        if (_isMeasuring) {
-                          setState(() {
-                            _isMeasuring = false;
-                            _measurementPoints.clear();
-                            _measurementStep = 0;
-                            _draggedPointIndex = null;
-                            _isPointDragInProgress = false;
-                          });
-                        } else {
-                          setState(() {
-                            _isMeasuring = true;
-                            _transformationController.value =
-                                Matrix4.identity();
-                          });
-                          _controller?.pause();
-                          await _runAIDetection();
-                        }
-                      }
-                    : null,
-                style: ElevatedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(
-                        vertical: 16, horizontal: 8)),
-                child: Text(_isMeasuring ? 'Cancel' : 'Measure'),
-              ),
-            ],
+              keyboardType:
+              const TextInputType.numberWithOptions(decimal: true),
+            ),
+          ),
+          const SizedBox(width: 8),
+          ElevatedButton(
+            onPressed: _controller != null
+                ? () async {
+              if (_isMeasuring) {
+                setState(() {
+                  _isMeasuring = false;
+                  _measurementPoints.clear();
+                  _measurementStep = 0;
+                  _draggedPointIndex = null;
+                  _isPointDragInProgress = false;
+                });
+              } else {
+                setState(() {
+                  _isMeasuring = true;
+                  _transformationController.value =
+                      Matrix4.identity();
+                });
+                _controller?.pause();
+                //await _runAIDetection();
+              }
+            }
+                : null,
+            style: ElevatedButton.styleFrom(
+                padding: const EdgeInsets.symmetric(
+                    vertical: 16, horizontal: 8)),
+            child: Text(_isMeasuring ? 'Cancel' : 'Measure'),
           ),
         ],
-      );
+      ),
+    ],
+  );
 
   Map<String, double>? _calculateJumpPhysics() {
+    // MODIFIED: Need 6 points for full calculation
     if (_markedTimestamps[OffTheBlockEvent.leftBlock] == null ||
         _markedTimestamps[OffTheBlockEvent.touchedWater] == null ||
         _measurementPoints.length < 6) {
       return null;
     }
 
-    final jumpStartPoint = _measurementPoints[4];
-    final waterEntry = _measurementPoints[5];
-    final jumpMidY = (jumpStartPoint.dy + waterEntry.dy) / 2;
+    // point[4] is the block edge
+    // point[5] is the water entry
+    final Offset jumpStart = _measurementPoints[4];
+    final Offset waterEntry = _measurementPoints[5];
+    final double jumpMidY = (jumpStart.dy + waterEntry.dy) / 2;
 
     final ppmAtJumpDepth = _getPixelsPerMeterAtDepth(jumpMidY);
     if (ppmAtJumpDepth == null) return null;
 
-    final jumpDistancePx = (waterEntry.dx - jumpStartPoint.dx).abs();
+    final jumpDistancePx = (waterEntry - jumpStart).distance;
     final jumpDistanceMeters = jumpDistancePx / ppmAtJumpDepth;
 
+    // Flight time
     final flightTimeDuration =
         _markedTimestamps[OffTheBlockEvent.touchedWater]! -
             _markedTimestamps[OffTheBlockEvent.leftBlock]!;
     final flightTimeSeconds = flightTimeDuration.inMilliseconds / 1000.0;
 
-    if (flightTimeSeconds <= 0) return null;
+    if (flightTimeSeconds <= 0) return null; // Avoid division by zero
 
     final horizontalVelocity = jumpDistanceMeters / flightTimeSeconds;
+
+    // --- VERTICAL VELOCITY & MAX HEIGHT CALCS ---
+    const double gravity = 9.81;
+    // Calculate initial vertical velocity (vy0)
+    final initialVerticalVelocity = (0.5 * gravity * flightTimeSeconds * flightTimeSeconds - startHeight) / flightTimeSeconds;
+
+    // Calculate max height above the block
+    final maxHeightAboveWater = startHeight + (initialVerticalVelocity * initialVerticalVelocity) / (2 * gravity);
+    final maxJumpHeight = maxHeightAboveWater - startHeight;
+
+    // --- NEW: ENTRY VELOCITY COMPONENTS ---
+    // Horizontal velocity at entry (same as average horizontal, ignoring air resistance)
+    final entryVelocityX = horizontalVelocity;
+    // Vertical velocity at entry (vy = vy0 - g*t)
+    final entryVelocityY = initialVerticalVelocity - gravity * flightTimeSeconds;
+    // --- END NEW ---
 
     return {
       'jumpDistance': jumpDistanceMeters,
       'flightTime': flightTimeSeconds,
       'horizontalVelocity': horizontalVelocity,
       'pixelsPerMeter': ppmAtJumpDepth,
+      'maxJumpHeight': maxJumpHeight,
+      'entryVelocityX': entryVelocityX, // Added X component
+      'entryVelocityY': entryVelocityY, // Added Y component (will be negative)
     };
   }
 
+  double? _previewJumpMeters() {
+    // MODIFIED: Need 6 points to preview
+    if (_measurementPoints.length < 6) return null;
+
+    // MODIFIED:
+    // point[4] is the block edge
+    // point[5] is the water entry
+    final jumpStart = _measurementPoints[4];
+    final jumpEnd = _measurementPoints[5];
+    final jumpY = (jumpStart.dy + jumpEnd.dy) / 2;
+
+    final ppm = _getPixelsPerMeterAtDepth(jumpY);
+    if (ppm == null) return null;
+
+    // Use the 2D line distance
+    final jumpDistancePx = (jumpEnd - jumpStart).distance;
+
+    return jumpDistancePx / ppm;
+  }
+
   void _calculateMeasuredDistance({bool showSnackbar = true}) {
+    // MODIFIED: Check for 6 points
     if (_measurementPoints.length < 6) {
       if (showSnackbar) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Please mark start and water entry.')),
+          const SnackBar(content: Text('Please mark all 5 steps.')),
         );
       }
       return;
@@ -670,7 +784,7 @@ class _OffTheBlockAnalysisPageState extends State<OffTheBlockAnalysisPage> {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
               content:
-                  Text('Could not calculate distance. Check reference marks.')),
+              Text('Could not calculate distance. Check reference marks.')),
         );
       }
       return;
@@ -733,21 +847,6 @@ class _OffTheBlockAnalysisPageState extends State<OffTheBlockAnalysisPage> {
     return ppmAtY > 0 ? ppmAtY : null;
   }
 
-  double? _previewJumpMeters() {
-    if (_measurementPoints.length < 6) return null;
-
-    final jumpStart = _measurementPoints[4];
-    final jumpEnd = _measurementPoints[5];
-    final jumpY = (jumpStart.dy + jumpEnd.dy) / 2;
-
-    final ppm = _getPixelsPerMeterAtDepth(jumpY);
-    if (ppm == null) return null;
-
-    final jumpDistancePx = (jumpEnd.dx - jumpStart.dx).abs();
-
-    return jumpDistancePx / ppm;
-  }
-
   Widget _buildActionButtons() {
     final allEventsMarked = OffTheBlockEvent.values
         .every((event) => _markedTimestamps.containsKey(event));
@@ -769,9 +868,9 @@ class _OffTheBlockAnalysisPageState extends State<OffTheBlockAnalysisPage> {
           const SizedBox(height: 10),
           ElevatedButton.icon(
             onPressed:
-                _controller?.value.isInitialized == true && allEventsMarked
-                    ? _calculateResults
-                    : null,
+            _controller?.value.isInitialized == true && allEventsMarked
+                ? _calculateResults
+                : null,
             icon: const Icon(Icons.analytics),
             label: const Text('Calculate Results'),
             style: ElevatedButton.styleFrom(
@@ -810,6 +909,7 @@ class _OffTheBlockAnalysisPageState extends State<OffTheBlockAnalysisPage> {
                             textAlign: TextAlign.center,
                             style: const TextStyle(
                                 fontWeight: FontWeight.bold, fontSize: 16)),
+                      // Check for 6 points
                       if (_measurementPoints.length == 6) ...[
                         const SizedBox(height: 8),
                         ElevatedButton.icon(
@@ -833,8 +933,8 @@ class _OffTheBlockAnalysisPageState extends State<OffTheBlockAnalysisPage> {
                 child: _isLoading
                     ? const Center(child: CircularProgressIndicator())
                     : _controller == null
-                        ? _buildVideoSelectionPrompt()
-                        : _buildVideoPlayer(),
+                    ? _buildVideoSelectionPrompt()
+                    : _buildVideoPlayer(),
               ),
             ),
             if (_controller != null && !_isLoading)
@@ -927,7 +1027,7 @@ class _JumpOverlayPainter extends CustomPainter {
       // Fill the path
       canvas.drawPath(surfacePath, aiFillPaint);
 
-      // Draw the 4 border lines individually for different styling
+      // Draw the 4 border lines
       canvas.drawLine(leftStart, leftEnd, aiMarkPaint); // Main left line
       canvas.drawLine(rightStart, rightEnd, aiMarkPaint); // Main right line
       canvas.drawLine(leftStart, rightStart, aiConnectorPaint); // Connector
@@ -940,22 +1040,30 @@ class _JumpOverlayPainter extends CustomPainter {
       canvas.drawCircle(rightEnd, 6, aiMarkPaint);
     }
 
-    // === 2. DRAW JUMP LINE ===
+    // === 2. DRAW JUMP LINES (MODIFIED) ===
+
+    // Draw "Start" (block edge) point
     if (points.length >= 5) {
       final start = points[4];
       canvas.drawCircle(start, 5, handlePaint);
-      _drawLabel(canvas, start, 'Start', Colors.greenAccent);
+      _drawLabel(canvas, start, 'Start (Block)', Colors.greenAccent);
     }
+
+    // Draw "Water Entry" point and horizontal jump line
     if (points.length >= 6) {
-      final start = points[4];
-      final entry = points[5];
+      final start = points[4]; // This is the start of the jump
+      final entry = points[5]; // This is the end
+
+      // This is the main measurement line
       canvas.drawLine(start, entry, jumpPaint);
+
       canvas.drawCircle(entry, 5, handlePaint);
       _drawLabel(canvas, entry, 'Entry', Colors.greenAccent);
 
+      // Draw the distance label
       if (previewMeters != null) {
         final mid =
-            Offset((start.dx + entry.dx) / 2, (start.dy + entry.dy) / 2);
+        Offset((start.dx + entry.dx) / 2, (start.dy + entry.dy) / 2);
         final tp = TextPainter(
           text: TextSpan(
             text: '${previewMeters!.toStringAsFixed(2)} m',

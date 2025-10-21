@@ -279,7 +279,7 @@ class _OffTheBlockResultsPageState extends State<OffTheBlockResultsPage> {
       resultsWidgets.add(ListTile(
         title: const Text('Peak Jump Height (above block)'),
         trailing:
-            Text('${widget.jumpData!['jumpHeight']!.toStringAsFixed(2)} m'),
+            Text('${widget.jumpData!['maxJumpHeight']!.toStringAsFixed(2)} m'),
       ));
       resultsWidgets.add(ListTile(
         title: const Text('Entry Velocity (Horizontal)'),

@@ -1,16 +1,18 @@
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:provider/provider.dart';
+import 'package:purchases_flutter/purchases_flutter.dart'; // <-- ADD THIS
+import 'package:swim_analyzer/revenue_cat/manage_subscription_page.dart';
+import 'package:swim_analyzer/revenue_cat/purchases_service.dart';
+import 'package:url_launcher/url_launcher.dart'; // <-- ADD THIS
 import 'package:swim_analyzer/theme_provider.dart';
 import 'package:swim_apps_shared/swim_apps_shared.dart';
 import 'legal/privacy_policy.dart';
 import 'legal/terms_of_service.dart';
 import 'profile/my_swimmers_page.dart';
 import 'profile/profile_page.dart';
-
 
 class SettingsPage extends StatefulWidget {
   final AppUser appUser;
@@ -21,22 +23,72 @@ class SettingsPage extends StatefulWidget {
 }
 
 class _SettingsPageState extends State<SettingsPage> {
-  // Refactored _signOut to handle potential exceptions from FirebaseAuth.
-  // A try-catch block ensures that if the sign-out process fails,
-  // the app won't crash. The error is logged to Crashlytics for diagnostics.
-  // A SnackBar provides immediate user feedback about the failure.
+  // --- NEW: State for subscription info ---
+  bool _isLoadingSubscription = true;
+  String _subscriptionInfo = 'Basic'; // Default value
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchSubscriptionInfo(); // Fetch info when the page loads
+  }
+
+  // --- NEW: Method to get subscription details ---
+  Future<void> _fetchSubscriptionInfo() async {
+    try {
+      final CustomerInfo customerInfo = await Purchases.getCustomerInfo();
+      String activeEntitlement = 'Basic'; // Default to 'Basic'
+
+      if (customerInfo.entitlements.active.isNotEmpty) {
+        // Get the identifier of the first active entitlement
+        final entitlement = customerInfo.entitlements.active.values.first;
+        activeEntitlement =
+            _formatEntitlementIdentifier(entitlement.productIdentifier);
+      }
+
+      if (mounted) {
+        setState(() {
+          _subscriptionInfo = activeEntitlement;
+          _isLoadingSubscription = false;
+        });
+      }
+    } catch (e, s) {
+      FirebaseCrashlytics.instance.recordError(e, s,
+          reason: 'Failed to fetch subscription info on SettingsPage');
+      if (mounted) {
+        setState(() {
+          _subscriptionInfo = 'Could not load';
+          _isLoadingSubscription = false;
+        });
+      }
+    }
+  }
+
+  // --- NEW: Helper to make entitlement names user-friendly ---
+  String _formatEntitlementIdentifier(String identifier) {
+    // Example: 'pro_swimmer' becomes 'Pro Swimmer'
+    return identifier
+        .split('_')
+        .map((word) => word.isNotEmpty
+        ? '${word[0].toUpperCase()}${word.substring(1)}'
+        : '')
+        .join(' ');
+  }
+
+  // --- MODIFIED: Ensure RevenueCat logout is called ---
   Future<void> _signOut() async {
     try {
+      // First, log out from RevenueCat to clear the user cache
+      await PurchasesService.logout();
+      // Then, sign out from Firebase
       await FirebaseAuth.instance.signOut();
-      // Check if the widget is still in the tree before using its context.
-      // This prevents errors if the user navigates away while sign-out is pending.
+
       if (mounted) {
         Navigator.of(context).popUntil((route) => route.isFirst);
       }
     } on FirebaseAuthException catch (e, s) {
-      // Log the specific authentication error to Firebase Crashlytics.
-      FirebaseCrashlytics.instance.recordError(e, s, reason: 'Failed to sign out');
-      // Inform the user that the sign-out failed.
+      FirebaseCrashlytics.instance
+          .recordError(e, s, reason: 'Failed to sign out');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Error signing out: ${e.message}')),
@@ -45,14 +97,34 @@ class _SettingsPageState extends State<SettingsPage> {
     }
   }
 
-  // The _capitalize function remains simple and effective.
-  // No changes are needed as it's already null-safe and handles empty strings.
+  Widget _buildSubscriptionSection() {
+    return Column(
+      children: [
+        ListTile(
+          leading: const Icon(Icons.workspace_premium_outlined),
+          title: const Text('Subscription'),
+          subtitle: _isLoadingSubscription
+              ? const Text('Loading...')
+              : Text(_subscriptionInfo),
+          trailing: const Icon(Icons.chevron_right), // Add a chevron
+          // Make the whole ListTile tappable
+          onTap: () {
+            Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (_) => const ManageSubscriptionPage(),
+              ),
+            );
+          },
+        ),
+      ],
+    );
+  }
+
   String _capitalize(String s) =>
       s.isNotEmpty ? s[0].toUpperCase() + s.substring(1) : '';
 
-  // This widget builder function is clear and has no complex logic.
-  // It remains as is for readability.
   Widget _buildSectionHeader(String title, {IconData? icon}) {
+    // ... (This method remains unchanged)
     final theme = Theme.of(context);
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 20, 16, 8),
@@ -70,9 +142,8 @@ class _SettingsPageState extends State<SettingsPage> {
     );
   }
 
-  // This widget builder function is clear and has no complex logic.
-  // It remains as is for readability.
   Widget _buildLegalSection() {
+    // ... (This method remains unchanged)
     return Column(
       children: [
         ListTile(
@@ -104,16 +175,11 @@ class _SettingsPageState extends State<SettingsPage> {
     );
   }
 
-  // Refactored the 'About' section to better handle states in the FutureBuilder.
-  // Added explicit checks for connection state and errors.
-  // If the future fails (e.g., package_info fails), the error is logged
-  // to Crashlytics and a user-friendly error message is displayed in the UI
-  // instead of crashing or showing incomplete data.
   Widget _buildAboutSection() {
+    // ... (This method remains unchanged)
     return FutureBuilder<PackageInfo>(
       future: PackageInfo.fromPlatform(),
       builder: (context, snapshot) {
-        // Handle error state: log the error and show an informative message.
         if (snapshot.hasError) {
           FirebaseCrashlytics.instance.recordError(
             snapshot.error,
@@ -126,8 +192,6 @@ class _SettingsPageState extends State<SettingsPage> {
             subtitle: Text('Could not load version info'),
           );
         }
-
-        // Handle loading state: show a placeholder.
         if (snapshot.connectionState != ConnectionState.done) {
           return const ListTile(
             leading: Icon(Icons.info_outline),
@@ -135,11 +199,8 @@ class _SettingsPageState extends State<SettingsPage> {
             subtitle: Text('Loading...'),
           );
         }
-
-        // Handle success state: safely access data.
         final version = snapshot.data?.version ?? 'N/A';
         final buildNumber = snapshot.data?.buildNumber ?? 'N/A';
-
         return ListTile(
           leading: const Icon(Icons.info_outline),
           title: const Text('App Version'),
@@ -149,10 +210,8 @@ class _SettingsPageState extends State<SettingsPage> {
     );
   }
 
-  // This widget builder function is clear and has no complex logic.
-  // The sign-out logic is handled in the `onTap` callback, which is now more robust.
-  // It remains as is for readability.
   Widget _buildActionsSection() {
+    // ... (This method remains unchanged)
     return ListTile(
       leading: Icon(Icons.logout, color: Theme.of(context).colorScheme.error),
       title: Text('Sign Out',
@@ -175,9 +234,6 @@ class _SettingsPageState extends State<SettingsPage> {
             ],
           ),
         );
-
-        // A null check `== true` is safer than `if (confirmed)`.
-        // If the dialog is dismissed, `confirmed` will be null.
         if (confirmed == true) {
           await _signOut();
         }
@@ -192,12 +248,14 @@ class _SettingsPageState extends State<SettingsPage> {
     final role = _capitalize(user.userType.name);
 
     return Scaffold(
+      appBar: AppBar(
+        title: const Text('Settings'),
+        // Give it an app bar so it looks consistent with other pages
+      ),
       body: ListView(
         children: [
           _buildSectionHeader('Account', icon: Icons.person_outline),
           ListTile(
-            // Added a null-safety check for user.name to prevent a range error
-            // on `user.name[0]` if the name is unexpectedly empty.
             leading: CircleAvatar(
               backgroundColor: Theme.of(context).colorScheme.primary,
               child: Text(user.name.isNotEmpty ? user.name[0].toUpperCase() : '?'),
@@ -215,9 +273,16 @@ class _SettingsPageState extends State<SettingsPage> {
               title: const Text('My Swimmers'),
               trailing: const Icon(Icons.chevron_right),
               onTap: () => Navigator.of(context).push(
-                MaterialPageRoute(builder: (_) => MySwimmersPage()),
+                MaterialPageRoute(builder: (_) => const MySwimmersPage()),
               ),
             ),
+
+          // --- NEW: Add the subscription section here ---
+          const Divider(height: 24),
+          _buildSectionHeader('Subscription', icon: Icons.workspace_premium_outlined),
+          _buildSubscriptionSection(),
+          // --- END NEW SECTION ---
+
           const Divider(height: 24),
           _buildSectionHeader('Appearance', icon: Icons.palette_outlined),
           SwitchListTile(

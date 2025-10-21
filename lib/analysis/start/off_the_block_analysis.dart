@@ -727,7 +727,7 @@ class _OffTheBlockAnalysisPageState extends State<OffTheBlockAnalysisPage> {
     // --- Core Metrics ---
     // Calculate 2D distance in pixels and meters
     final double jumpDistancePx = (waterEntry - jumpStartPoint).distance;
-    final double jumpDistanceMeters = jumpDistancePx / ppmAtJumpDepth;
+    final double jumpDistanceMeters = (jumpDistancePx / ppmAtJumpDepth)+0.15;
 
     // Calculate average horizontal velocity (constant vx, ignoring air resistance)
     final double horizontalVelocity = jumpDistanceMeters / flightTimeSeconds;

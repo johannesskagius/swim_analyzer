@@ -87,9 +87,6 @@ class PickRaceHistoryPage extends StatelessWidget {
     }
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('History'),
-      ),
       body: ListView(
         // Use the defined constant for padding.
         padding: const EdgeInsets.all(_kHorizontalPadding),

@@ -310,10 +310,6 @@ class _SettingsPageState extends State<SettingsPage> {
     final role = _capitalize(user.userType.name);
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Settings'),
-        // Give it an app bar so it looks consistent with other pages
-      ),
       body: ListView(
         children: [
           _buildSectionHeader('Account', icon: Icons.person_outline),

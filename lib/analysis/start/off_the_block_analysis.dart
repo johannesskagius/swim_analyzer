@@ -29,7 +29,7 @@ class OffTheBlockAnalysisPage extends StatefulWidget {
 class _OffTheBlockAnalysisPageState extends State<OffTheBlockAnalysisPage> {
   final double startHeight = 0.75; //Todo set this in settings
   bool _isLoading = false;
-  bool _isDetecting = false; // NEW: AI loading flag
+  bool _isDetecting = false;
 
   VideoPlayerController? _controller;
   final ImagePicker _picker = ImagePicker();

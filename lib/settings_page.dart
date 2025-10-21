@@ -1,14 +1,14 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:flutter/material.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:provider/provider.dart';
 import 'package:purchases_flutter/purchases_flutter.dart'; // <-- ADD THIS
 import 'package:swim_analyzer/revenue_cat/manage_subscription_page.dart';
 import 'package:swim_analyzer/revenue_cat/purchases_service.dart';
-import 'package:url_launcher/url_launcher.dart'; // <-- ADD THIS
 import 'package:swim_analyzer/theme_provider.dart';
 import 'package:swim_apps_shared/swim_apps_shared.dart';
+
 import 'legal/privacy_policy.dart';
 import 'legal/terms_of_service.dart';
 import 'profile/my_swimmers_page.dart';
@@ -16,6 +16,7 @@ import 'profile/profile_page.dart';
 
 class SettingsPage extends StatefulWidget {
   final AppUser appUser;
+
   const SettingsPage({super.key, required this.appUser});
 
   @override
@@ -70,8 +71,8 @@ class _SettingsPageState extends State<SettingsPage> {
     return identifier
         .split('_')
         .map((word) => word.isNotEmpty
-        ? '${word[0].toUpperCase()}${word.substring(1)}'
-        : '')
+            ? '${word[0].toUpperCase()}${word.substring(1)}'
+            : '')
         .join(' ');
   }
 
@@ -106,7 +107,8 @@ class _SettingsPageState extends State<SettingsPage> {
           subtitle: _isLoadingSubscription
               ? const Text('Loading...')
               : Text(_subscriptionInfo),
-          trailing: const Icon(Icons.chevron_right), // Add a chevron
+          trailing: const Icon(Icons.chevron_right),
+          // Add a chevron
           // Make the whole ListTile tappable
           onTap: () {
             Navigator.of(context).push(
@@ -258,7 +260,8 @@ class _SettingsPageState extends State<SettingsPage> {
           ListTile(
             leading: CircleAvatar(
               backgroundColor: Theme.of(context).colorScheme.primary,
-              child: Text(user.name.isNotEmpty ? user.name[0].toUpperCase() : '?'),
+              child:
+                  Text(user.name.isNotEmpty ? user.name[0].toUpperCase() : '?'),
             ),
             title: Text(user.name),
             subtitle: Text('${user.email} • $role'),
@@ -279,7 +282,8 @@ class _SettingsPageState extends State<SettingsPage> {
 
           // --- NEW: Add the subscription section here ---
           const Divider(height: 24),
-          _buildSectionHeader('Subscription', icon: Icons.workspace_premium_outlined),
+          _buildSectionHeader('Subscription',
+              icon: Icons.workspace_premium_outlined),
           _buildSubscriptionSection(),
           // --- END NEW SECTION ---
 

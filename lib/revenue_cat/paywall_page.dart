@@ -7,10 +7,9 @@ import 'package:purchases_flutter/purchases_flutter.dart';
 import 'package:swim_analyzer/auth_wrapper.dart';
 import 'package:swim_apps_shared/swim_apps_shared.dart';
 
-import '../home_page.dart';
-
 class PaywallPage extends StatefulWidget {
   final AppUser? appUser;
+
   const PaywallPage({super.key, this.appUser});
 
   @override
@@ -69,7 +68,7 @@ class _PaywallPageState extends State<PaywallPage> {
       MaterialPageRoute(
         builder: (_) => const AuthWrapper(),
       ),
-          (route) => false, // Remove all previous routes.
+      (route) => false, // Remove all previous routes.
     );
   }
 
@@ -96,9 +95,9 @@ class _PaywallPageState extends State<PaywallPage> {
       }
 
       final hasProSwimmer =
-      customerInfo.entitlements.active.containsKey('pro_swimmer');
+          customerInfo.entitlements.active.containsKey('pro_swimmer');
       final hasProCoach =
-      customerInfo.entitlements.active.containsKey('pro_coach');
+          customerInfo.entitlements.active.containsKey('pro_coach');
 
       if (hasProSwimmer || hasProCoach) {
         if (mounted) {
@@ -124,8 +123,7 @@ class _PaywallPageState extends State<PaywallPage> {
         }
       }
     } catch (e, s) {
-      FirebaseCrashlytics.instance.recordError(e, s,
-          reason: 'Purchase failed');
+      FirebaseCrashlytics.instance.recordError(e, s, reason: 'Purchase failed');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -144,7 +142,7 @@ class _PaywallPageState extends State<PaywallPage> {
 
     try {
       final CustomerInfo restoredCustomerInfo =
-      await Purchases.restorePurchases();
+          await Purchases.restorePurchases();
 
       final hasActiveEntitlement =
           restoredCustomerInfo.entitlements.active.isNotEmpty;
@@ -243,8 +241,8 @@ class _PaywallPageState extends State<PaywallPage> {
                             } else {
                               ScaffoldMessenger.of(context).showSnackBar(
                                 const SnackBar(
-                                  content: Text(
-                                      'Cannot skip without a valid user.'),
+                                  content:
+                                      Text('Cannot skip without a valid user.'),
                                 ),
                               );
                             }
@@ -268,7 +266,7 @@ class _PaywallPageState extends State<PaywallPage> {
 
                 return Card(
                   margin:
-                  const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                   child: ListTile(
                     contentPadding: const EdgeInsets.all(16),
                     title: Text(product.title,
@@ -280,11 +278,11 @@ class _PaywallPageState extends State<PaywallPage> {
                     trailing: Text(
                       product.priceString,
                       style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.bold,
-                      ),
+                            fontWeight: FontWeight.bold,
+                          ),
                     ),
                     onTap:
-                    _isPurchasing ? null : () => _purchasePackage(package),
+                        _isPurchasing ? null : () => _purchasePackage(package),
                   ),
                 );
               },

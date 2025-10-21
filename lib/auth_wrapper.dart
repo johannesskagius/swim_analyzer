@@ -1,5 +1,6 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:purchases_flutter/purchases_flutter.dart';
@@ -7,6 +8,27 @@ import 'package:swim_analyzer/home_page.dart';
 import 'package:swim_analyzer/revenue_cat/paywall_page.dart';
 import 'package:swim_analyzer/sign_in_page.dart';
 import 'package:swim_apps_shared/swim_apps_shared.dart';
+
+/// A class that holds the user's permission status.
+/// This will be provided to the widget tree.
+class PermissionLevel {
+  final AppUser appUser;
+  final bool hasSwimmerSubscription;
+  final bool hasCoachSubscription;
+
+  PermissionLevel({
+    required this.appUser,
+    this.hasSwimmerSubscription = false,
+    this.hasCoachSubscription = false,
+  });
+
+  /// True if the user has any active subscription.
+  bool get hasActiveSubscription =>
+      hasSwimmerSubscription || hasCoachSubscription;
+
+  /// True if the user has the coach entitlement.
+  bool get isCoach => hasCoachSubscription;
+}
 
 class AuthWrapper extends StatelessWidget {
   const AuthWrapper({super.key});
@@ -69,7 +91,7 @@ class _ProfileLoader extends StatelessWidget {
   }
 }
 
-// New widget to handle RevenueCat subscription logic.
+// This widget now provides the PermissionLevel to the rest of the app.
 class _SubscriptionWrapper extends StatefulWidget {
   final AppUser appUser;
 
@@ -80,70 +102,70 @@ class _SubscriptionWrapper extends StatefulWidget {
 }
 
 class _SubscriptionWrapperState extends State<_SubscriptionWrapper> {
-  // This future holds the result of our subscription check.
-  late final Future<bool> _hasActiveSubscriptionFuture;
+  late final Future<PermissionLevel> _permissionFuture;
 
   @override
   void initState() {
     super.initState();
-    _hasActiveSubscriptionFuture = _checkSubscriptionStatus();
+    _permissionFuture = _checkPermissions();
   }
 
-  Future<bool> _checkSubscriptionStatus() async {
+  Future<PermissionLevel> _checkPermissions() async {
     try {
       // Log in to RevenueCat with the user's unique ID.
       await Purchases.logIn(widget.appUser.id);
 
-      // Get the latest customer info.
       final CustomerInfo customerInfo = await Purchases.getCustomerInfo();
 
-      // Check if the user has an active entitlement in RevenueCat.
       final hasProSwimmer =
-          customerInfo.entitlements.active.containsKey('entldd89ea41a6');
+      customerInfo.entitlements.active.containsKey('entldd89ea41a6');
       final hasProCoach =
-          customerInfo.entitlements.active.containsKey('entlb23409183b');
+      customerInfo.entitlements.active.containsKey('entlb23409183b');
 
-      debugPrint('Debugprint: Has pro coach: $hasProCoach');
-      debugPrint('Debugprint: Has pro swimmer: $hasProSwimmer');
-      return hasProSwimmer || hasProCoach;
+      if (kDebugMode) {
+        print('Active Entitlements: ${customerInfo.entitlements.active.keys}');
+      }
+
+      return PermissionLevel(
+        appUser: widget.appUser,
+        hasSwimmerSubscription: hasProSwimmer,
+        hasCoachSubscription: hasProCoach,
+      );
     } catch (e, s) {
       FirebaseCrashlytics.instance.recordError(
         e,
         s,
-        reason: 'RevenueCat subscription check failed',
+        reason: 'RevenueCat permission check failed',
       );
-      // If the check fails, deny access as a safe default.
-      return false;
+      // On failure, return a default PermissionLevel with no access.
+      return PermissionLevel(appUser: widget.appUser);
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    return FutureBuilder<bool>(
-      future: _hasActiveSubscriptionFuture,
+    return FutureBuilder<PermissionLevel>(
+      future: _permissionFuture,
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const _LoadingScreen(message: 'Verifying subscription...');
         }
 
-        // Handle potential errors during the future execution.
-        if (snapshot.hasError) {
-          FirebaseCrashlytics.instance.recordError(
-            snapshot.error,
-            snapshot.stackTrace,
-            reason: 'Subscription check FutureBuilder failed',
-          );
-          // Show paywall on error as a safe fallback.
+        if (snapshot.hasError || !snapshot.hasData) {
           return PaywallPage(appUser: widget.appUser);
         }
 
-        final hasActiveSubscription = snapshot.data ?? false;
+        final permissions = snapshot.requireData;
 
-        if (hasActiveSubscription) {
-          // User has an active subscription, grant access to the app.
-          return HomePage(appUser: widget.appUser);
+        if (permissions.hasActiveSubscription) {
+          // If the user has a subscription, provide the `PermissionLevel`
+          // object to the HomePage and its descendants.
+          return Provider<PermissionLevel>.value(
+            value: permissions,
+            child: const HomePage(),
+          );
         } else {
-          // User does not have an active subscription, show the paywall.
+          // Otherwise, show the paywall.
           return PaywallPage(appUser: widget.appUser);
         }
       },
@@ -151,7 +173,6 @@ class _SubscriptionWrapperState extends State<_SubscriptionWrapper> {
   }
 }
 
-/// A simple, reusable loading screen with an optional message.
 class _LoadingScreen extends StatelessWidget {
   final String? message;
 

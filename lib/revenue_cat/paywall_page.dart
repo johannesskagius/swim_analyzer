@@ -4,8 +4,10 @@ import 'package:flutter/material.dart';
 // Import 'PlatformException' to handle purchase errors
 import 'package:flutter/services.dart';
 import 'package:purchases_flutter/purchases_flutter.dart';
-import 'package:swim_analyzer/home_page.dart';
+import 'package:swim_analyzer/auth_wrapper.dart';
 import 'package:swim_apps_shared/swim_apps_shared.dart';
+
+import '../home_page.dart';
 
 class PaywallPage extends StatefulWidget {
   final AppUser? appUser;
@@ -59,6 +61,18 @@ class _PaywallPageState extends State<PaywallPage> {
     return [];
   }
 
+  // This helper function centralizes the navigation logic.
+  void _navigateToHome() {
+    // Navigate back to the AuthWrapper. It will re-check permissions
+    // and correctly direct the user to the HomePage with the provider setup.
+    Navigator.of(context).pushAndRemoveUntil(
+      MaterialPageRoute(
+        builder: (_) => const AuthWrapper(),
+      ),
+          (route) => false, // Remove all previous routes.
+    );
+  }
+
   /// Handles the purchase logic when a user taps on a package.
   Future<void> _purchasePackage(Package package) async {
     if (widget.appUser == null) {
@@ -72,57 +86,36 @@ class _PaywallPageState extends State<PaywallPage> {
     setState(() => _isPurchasing = true);
 
     try {
-      // --- FIX: The `purchasePackage` method is deprecated. ---
-      // We now use `purchase` with a `PurchaseParams` object.
       final purchaseResult = await Purchases.purchase(
           PurchaseParams.storeProduct(package.storeProduct));
       final CustomerInfo customerInfo = purchaseResult.customerInfo;
 
-      // --- FIX: Add logging to see what entitlements are active ---
       if (kDebugMode) {
         print(
             'Active entitlements after purchase: ${customerInfo.entitlements.active.keys}');
       }
 
-      // Check if the purchase granted an active entitlement.
       final hasProSwimmer =
       customerInfo.entitlements.active.containsKey('pro_swimmer');
       final hasProCoach =
       customerInfo.entitlements.active.containsKey('pro_coach');
 
       if (hasProSwimmer || hasProCoach) {
-        // If the purchase was successful and granted access, navigate to the HomePage.
         if (mounted) {
-          Navigator.of(context).pushAndRemoveUntil(
-            MaterialPageRoute(
-              builder: (_) => HomePage(appUser: widget.appUser!),
-            ),
-                (route) => false, // Remove all previous routes.
-          );
+          _navigateToHome();
         }
       } else {
-        // --- FIX: Handle cases where entitlement is slow to update ---
-        // Assume success, show a message, and navigate.
-        // The AuthWrapper will be the final gatekeeper on the next app open.
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
                 content: Text('Purchase successful! Unlocking features.')),
           );
-          Navigator.of(context).pushAndRemoveUntil(
-            MaterialPageRoute(
-              builder: (_) => HomePage(appUser: widget.appUser!),
-            ),
-                (route) => false,
-          );
+          _navigateToHome();
         }
       }
     } on PlatformException catch (e) {
-      // The old PurchasesErrorException is replaced by PlatformException.
-      // We use a helper to get the specific error code.
       final PurchasesErrorCode errorCode = PurchasesErrorHelper.getErrorCode(e);
 
-      // Check the error code to see if the user cancelled the purchase.
       if (errorCode != PurchasesErrorCode.purchaseCancelledError) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -131,7 +124,6 @@ class _PaywallPageState extends State<PaywallPage> {
         }
       }
     } catch (e, s) {
-      // Handle any other unexpected errors.
       FirebaseCrashlytics.instance.recordError(e, s,
           reason: 'Purchase failed');
       if (mounted) {
@@ -147,7 +139,6 @@ class _PaywallPageState extends State<PaywallPage> {
     }
   }
 
-  // --- ADDED: Method to handle restoring purchases. ---
   Future<void> _restorePurchases() async {
     setState(() => _isPurchasing = true);
 
@@ -166,17 +157,11 @@ class _PaywallPageState extends State<PaywallPage> {
           );
         }
       } else {
-        // If an active subscription was restored, navigate to the home page.
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('Your purchase has been restored.')),
           );
-          Navigator.of(context).pushAndRemoveUntil(
-            MaterialPageRoute(
-              builder: (_) => HomePage(appUser: widget.appUser!),
-            ),
-                (route) => false,
-          );
+          _navigateToHome();
         }
       }
     } on PlatformException catch (e) {
@@ -189,7 +174,6 @@ class _PaywallPageState extends State<PaywallPage> {
         }
       }
     } catch (e, s) {
-      // FIX: Corrected typo from "Crashlytiny" to "Crashlytics"
       FirebaseCrashlytics.instance.recordError(e, s, reason: 'Restore failed');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -210,7 +194,6 @@ class _PaywallPageState extends State<PaywallPage> {
       appBar: AppBar(
         title: const Text('Choose Your Plan'),
         automaticallyImplyLeading: false,
-        // --- ADDED: Restore Purchases Button ---
         actions: [
           TextButton(
             onPressed: _isPurchasing ? null : _restorePurchases,
@@ -225,13 +208,11 @@ class _PaywallPageState extends State<PaywallPage> {
         child: FutureBuilder<List<Package>>(
           future: _packagesFuture,
           builder: (context, snapshot) {
-            // Show a loading indicator while fetching packages or purchasing.
             if (snapshot.connectionState == ConnectionState.waiting ||
                 _isPurchasing) {
               return const Center(child: CircularProgressIndicator());
             }
 
-            // Show an error message if fetching failed.
             if (snapshot.hasError ||
                 !snapshot.hasData ||
                 snapshot.data!.isEmpty) {
@@ -254,29 +235,22 @@ class _PaywallPageState extends State<PaywallPage> {
                         },
                         child: const Text('Retry'),
                       ),
-                      kDebugMode
-                          ? ElevatedButton(
-                        onPressed: () {
-                          if (widget.appUser != null) {
-                            Navigator.of(context).pushAndRemoveUntil(
-                              MaterialPageRoute(
-                                builder: (_) =>
-                                    HomePage(appUser: widget.appUser!),
-                              ),
-                                  (route) => false,
-                            );
-                          } else {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text(
-                                    'Cannot skip without a valid user.'),
-                              ),
-                            );
-                          }
-                        },
-                        child: const Text('Skip to Home'),
-                      )
-                          : const SizedBox.shrink()
+                      if (kDebugMode)
+                        ElevatedButton(
+                          onPressed: () {
+                            if (widget.appUser != null) {
+                              _navigateToHome();
+                            } else {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text(
+                                      'Cannot skip without a valid user.'),
+                                ),
+                              );
+                            }
+                          },
+                          child: const Text('Skip to Home'),
+                        )
                     ],
                   ),
                 ),
@@ -285,7 +259,6 @@ class _PaywallPageState extends State<PaywallPage> {
 
             final packages = snapshot.data!;
 
-            // If we have packages, display them in a list.
             return ListView.builder(
               padding: const EdgeInsets.symmetric(vertical: 20),
               itemCount: packages.length,

@@ -46,7 +46,7 @@ class _SignInPageState extends State<SignInPage> {
       if (hasEntitlements) {
         // User has an active subscription, go to the main app.
         Navigator.of(context).pushAndRemoveUntil(
-          MaterialPageRoute(builder: (_) => HomePage(appUser: appUser)),
+          MaterialPageRoute(builder: (_) => HomePage()),
           (route) => false,
         );
       } else {

@@ -1,7 +1,9 @@
+import 'dart:async';
 import 'dart:ui';
 
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:purchases_flutter/purchases_flutter.dart';
@@ -57,40 +59,67 @@ class _PaywallPageState extends State<PaywallPage> {
       _showSnack('Please log in before purchasing.');
       return;
     }
+
     setState(() => _isPurchasing = true);
+
     try {
-      await Purchases.purchase(PurchaseParams.package(package));
-      if (!mounted) return;
-      await showDialog(
-        context: context,
-        builder: (ctx) => AlertDialog(
-          shape:
-          RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          title: const Text('🎉 Subscription Activated'),
-          content: const Text(
-            'Welcome aboard! Your premium features are now unlocked.',
-            style: TextStyle(fontSize: 15),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx),
-              child: const Text('Continue'),
-            ),
-          ],
-        ),
+      // Run the purchase
+      final purchaserInfo = await Purchases.purchase(
+        PurchaseParams.package(package),
       );
-      _navigateToAuthWrapper();
-    } on PlatformException catch (e) {
-      if (PurchasesErrorHelper.getErrorCode(e) !=
-          PurchasesErrorCode.purchaseCancelledError) {
-        FirebaseCrashlytics.instance
-            .recordError(e, StackTrace.current, reason: 'Purchase failed');
+
+      // 🔍 Check entitlements immediately
+      final entitlements = await purchaserInfo.customerInfo.entitlements.active.keys.toList();
+
+      debugPrint('Active entitlements after purchase: $entitlements');
+
+      if (entitlements.isNotEmpty) {
+        // ✅ Purchase succeeded & entitlement active
+
+        await showDialog(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            title: const Text('🎉 Subscription Activated'),
+            content: const Text(
+              'Welcome aboard! Your premium features are now unlocked.',
+              style: TextStyle(fontSize: 15),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text('Continue'),
+              ),
+            ],
+          ),
+        );
+
+        // Optional: fetch fresh customer info from backend to ensure sync
+        final info = await Purchases.getCustomerInfo();
+        debugPrint('Synced entitlements: ${info.entitlements.active.keys}');
+
+        // Proceed to main app if still active
+        if (info.entitlements.active.isNotEmpty) {
+          _navigateToAuthWrapper();
+        } else {
+          _showSnack('Purchase completed but entitlement not yet active.');
+        }
+      } else {
+        _showSnack('Purchase successful, but no active entitlement found.');
+      }
+    } on PlatformException catch (e, s) {
+      final errorCode = PurchasesErrorHelper.getErrorCode(e);
+      FirebaseCrashlytics.instance.recordError(e, s, reason: 'Purchase failed');
+      if (errorCode == PurchasesErrorCode.purchaseCancelledError) {
+        _showSnack('Purchase cancelled.');
+      } else {
         _showSnack('Purchase failed: ${e.message}');
       }
     } finally {
       if (mounted) setState(() => _isPurchasing = false);
     }
   }
+
 
   void _navigateToAuthWrapper() {
     if (!mounted) return;
@@ -199,6 +228,11 @@ class _PaywallPageState extends State<PaywallPage> {
                   ),
                 ),
               ),
+            kDebugMode ? IconButton(onPressed: () async {
+              await Purchases.logOut();
+              await Purchases.logIn(widget.appUser!.id);
+              Navigator.pop(context);
+            }, icon: Icon(Icons.exit_to_app)):const SizedBox.shrink()
           ],
         ),
         body: SafeArea(
@@ -258,7 +292,7 @@ class _PaywallPageState extends State<PaywallPage> {
                   ],
                   const SizedBox(height: 16),
                   _metaSection(
-                    icon: Icons.account_box,
+                    icon: Icons.switch_account,
                     title: 'Individual Plans',
                     desc:
                     'For swimmers & coaches focused on personal performance analysis.',

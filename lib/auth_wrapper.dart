@@ -1,5 +1,6 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:purchases_flutter/purchases_flutter.dart';
@@ -27,6 +28,22 @@ class PermissionLevel {
 
   /// True if the user has the coach entitlement.
   bool get isCoach => hasCoachSubscription;
+
+  // Added for easy state comparison to prevent unnecessary rebuilds.
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+          other is PermissionLevel &&
+              runtimeType == other.runtimeType &&
+              appUser.id == other.appUser.id &&
+              hasSwimmerSubscription == other.hasSwimmerSubscription &&
+              hasCoachSubscription == other.hasCoachSubscription;
+
+  @override
+  int get hashCode =>
+      appUser.id.hashCode ^
+      hasSwimmerSubscription.hashCode ^
+      hasCoachSubscription.hashCode;
 }
 
 class AuthWrapper extends StatelessWidget {
@@ -90,7 +107,7 @@ class _ProfileLoader extends StatelessWidget {
   }
 }
 
-// This widget now provides the PermissionLevel to the rest of the app.
+// REFACTORED: This widget now uses a listener for real-time subscription updates.
 class _SubscriptionWrapper extends StatefulWidget {
   final AppUser appUser;
 
@@ -100,84 +117,106 @@ class _SubscriptionWrapper extends StatefulWidget {
   State<_SubscriptionWrapper> createState() => _SubscriptionWrapperState();
 }
 
+// REFACTORED: This state now manages permissions reactively.
+// It no longer uses a FutureBuilder, but instead listens to a stream of updates
+// from RevenueCat and rebuilds its child UI accordingly. This is more robust
+// for handling subscription changes that happen outside the app (e.g., from
+// the App Store settings) or when entitlement access is granted with a delay.
 class _SubscriptionWrapperState extends State<_SubscriptionWrapper> {
-  late final Future<PermissionLevel> _permissionFuture;
+  PermissionLevel? _permissionLevel;
+  bool _isLoading = true;
 
   @override
   void initState() {
     super.initState();
-    _permissionFuture = _checkPermissions();
+    // 1. Set up the listener to react to any changes in customer info.
+    Purchases.addCustomerInfoUpdateListener(_onCustomerInfoUpdated);
+    // 2. Fetch the initial permission state when the widget is first built.
+    _initializePermissions();
   }
 
-  Future<PermissionLevel> _checkPermissions() async {
+  @override
+  void dispose() {
+    // 3. Clean up the listener when the widget is removed from the tree.
+    Purchases.removeCustomerInfoUpdateListener(_onCustomerInfoUpdated);
+    super.dispose();
+  }
+
+  /// This function is the callback for the RevenueCat listener.
+  /// It's triggered whenever subscription information changes.
+  void _onCustomerInfoUpdated(CustomerInfo customerInfo) {
+    if (kDebugMode) {
+      debugPrint("✅ CustomerInfo Listener Fired!");
+      debugPrint("Listener - Active Entitlements: ${customerInfo.entitlements.active.keys}");
+    }
+    _updatePermissionsFromInfo(customerInfo);
+  }
+
+  /// Fetches the initial customer info from RevenueCat.
+  Future<void> _initializePermissions() async {
     try {
-      // Log in to RevenueCat with the user's unique ID.
+      // It's good practice to log in to ensure the user context is correct.
       await Purchases.logIn(widget.appUser.id);
-
-      final CustomerInfo customerInfo = await Purchases.getCustomerInfo();
-
-      // --- FIX: Use the correct, consistent entitlement identifiers ---
-      final hasProSwimmer =
-          customerInfo.entitlements.active.containsKey('Swimmer subscription');
-      final hasProCoach =
-          customerInfo.entitlements.active.containsKey('Coach subscription');
-
-      debugPrint(
-          'Active Entitlements: ${customerInfo.entitlements.active.keys}');
-      debugPrint(
-          'Active Entitlements: ${customerInfo.entitlements.active}');
-
-      var permissionLevel = PermissionLevel(
-        appUser: widget.appUser,
-        hasSwimmerSubscription: hasProSwimmer,
-        hasCoachSubscription: hasProCoach,
-      );
-
-      debugPrint(
-          'Has active subscription: ${permissionLevel.hasActiveSubscription.toString()}');
-      debugPrint(
-          'Has coach subscription: ${permissionLevel.hasCoachSubscription.toString()}');
-
-      return permissionLevel;
+      final customerInfo = await Purchases.getCustomerInfo();
+      _updatePermissionsFromInfo(customerInfo);
     } catch (e, s) {
-      FirebaseCrashlytics.instance.recordError(
-        e,
-        s,
-        reason: 'RevenueCat permission check failed',
+      FirebaseCrashlytics.instance.recordError(e, s,
+        reason: 'Initial RevenueCat permission check failed',
       );
-      // On failure, return a default PermissionLevel with no access.
-      return PermissionLevel(appUser: widget.appUser);
+      // If the initial check fails, default to no permissions.
+      if (mounted) {
+        setState(() {
+          _permissionLevel = PermissionLevel(appUser: widget.appUser);
+          _isLoading = false;
+        });
+      }
+    }
+  }
+
+  /// Centralized logic to process `CustomerInfo` and update the state.
+  /// This is called by both the initial fetch and the listener.
+  void _updatePermissionsFromInfo(CustomerInfo customerInfo) {
+    final hasProSwimmer =
+    customerInfo.entitlements.active.containsKey('swim_analyzer_pro_single');
+    final hasProCoach =
+    customerInfo.entitlements.active.containsKey('swim_analyzer_pro_team');
+
+    final newPermissionLevel = PermissionLevel(
+      appUser: widget.appUser,
+      hasSwimmerSubscription: hasProSwimmer,
+      hasCoachSubscription: hasProCoach,
+    );
+
+    // Only call setState if the permission level has actually changed or if
+    // we are moving out of the initial loading state. This prevents
+    // unnecessary rebuilds of the widget tree.
+    if (mounted && (_permissionLevel != newPermissionLevel || _isLoading)) {
+      setState(() {
+        _permissionLevel = newPermissionLevel;
+        _isLoading = false;
+      });
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    return FutureBuilder<PermissionLevel>(
-      future: _permissionFuture,
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const _LoadingScreen(message: 'Verifying subscription...');
-        }
+    // While loading, show a simple loading screen.
+    if (_isLoading || _permissionLevel == null) {
+      return const _LoadingScreen(message: 'Verifying subscription...');
+    }
 
-        if (snapshot.hasError || !snapshot.hasData) {
-          return PaywallPage(appUser: widget.appUser);
-        }
+    final permissions = _permissionLevel!;
 
-        final permissions = snapshot.requireData;
-
-        if (permissions.hasActiveSubscription) {
-          // If the user has a subscription, provide the `PermissionLevel`
-          // object to the HomePage and its descendants.
-          return Provider<PermissionLevel>.value(
-            value: permissions,
-            child: const HomePage(),
-          );
-        } else {
-          // Otherwise, show the paywall.
-          return PaywallPage(appUser: widget.appUser);
-        }
-      },
-    );
+    // Based on the current permission state, show either the app or the paywall.
+    // This will automatically rebuild whenever the listener fires and updates the state.
+    if (permissions.hasActiveSubscription) {
+      return Provider<PermissionLevel>.value(
+        value: permissions,
+        child: const HomePage(),
+      );
+    } else {
+      return PaywallPage(appUser: widget.appUser);
+    }
   }
 }
 

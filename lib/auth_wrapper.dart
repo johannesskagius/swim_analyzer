@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:flutter/foundation.dart';
@@ -9,27 +11,23 @@ import 'package:swim_analyzer/revenue_cat/paywall_page.dart';
 import 'package:swim_analyzer/sign_in_page.dart';
 import 'package:swim_apps_shared/swim_apps_shared.dart';
 
-/// A class that holds the user's permission status.
-/// This will be provided to the widget tree.
+/// Represents a user's entitlements/subscriptions.
 class PermissionLevel {
   final AppUser appUser;
   final bool hasSwimmerSubscription;
   final bool hasCoachSubscription;
 
-  PermissionLevel({
+  const PermissionLevel({
     required this.appUser,
     this.hasSwimmerSubscription = false,
     this.hasCoachSubscription = false,
   });
 
-  /// True if the user has any active subscription.
   bool get hasActiveSubscription =>
       hasSwimmerSubscription || hasCoachSubscription;
 
-  /// True if the user has the coach entitlement.
   bool get isCoach => hasCoachSubscription;
 
-  // Added for easy state comparison to prevent unnecessary rebuilds.
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -46,6 +44,7 @@ class PermissionLevel {
       hasCoachSubscription.hashCode;
 }
 
+/// Entry point wrapper that switches between auth states.
 class AuthWrapper extends StatelessWidget {
   const AuthWrapper({super.key});
 
@@ -59,69 +58,167 @@ class AuthWrapper extends StatelessWidget {
         }
 
         if (authSnapshot.hasData) {
-          // User is authenticated with Firebase
+          // Firebase user exists → load profile
           return _ProfileLoader(key: ValueKey(authSnapshot.data!.uid));
         }
 
-        // User is not authenticated, log them out of RevenueCat too.
-        Purchases.logOut();
+        // User is not authenticated
+        final currentUser = FirebaseAuth.instance.currentUser;
+        if (currentUser != null && !currentUser.isAnonymous) {
+          // Avoid the "logout called for anonymous user" error
+          unawaited(Purchases.logOut());
+        }
+
         return const SignInPage();
       },
     );
   }
 }
 
-class _ProfileLoader extends StatelessWidget {
+/// Loads the Firestore user profile, with retry logic for new signups.
+class _ProfileLoader extends StatefulWidget {
   const _ProfileLoader({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  State<_ProfileLoader> createState() => _ProfileLoaderState();
+}
+
+class _ProfileLoaderState extends State<_ProfileLoader> {
+  static const int _maxRetries = 8;
+  int _attempt = 0;
+  AppUser? _appUser;
+  bool _isLoading = true;
+  bool _hasError = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadProfileWithRetry();
+  }
+
+  Future<void> _loadProfileWithRetry() async {
     final userRepository = context.read<UserRepository>();
+    final firebaseUser = FirebaseAuth.instance.currentUser;
 
-    return FutureBuilder<AppUser?>(
-      future: userRepository.getMyProfile(),
-      builder: (context, profileSnapshot) {
-        if (profileSnapshot.connectionState == ConnectionState.waiting) {
-          return const _LoadingScreen(message: 'Loading profile...');
-        }
+    if (firebaseUser == null) {
+      _signOutWithError('Firebase user disappeared during profile load');
+      return;
+    }
 
-        if (profileSnapshot.hasError || !profileSnapshot.hasData) {
-          FirebaseCrashlytics.instance.recordError(
-            profileSnapshot.error,
-            profileSnapshot.stackTrace,
-            reason: 'Failed to load user profile.',
-          );
-          // If profile fails to load, sign out to prevent an invalid state.
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            FirebaseAuth.instance.signOut();
+    while (_attempt < _maxRetries) {
+      try {
+        final profile = await userRepository.getMyProfile();
+        if (profile != null) {
+          if (!mounted) return;
+          setState(() {
+            _appUser = profile;
+            _isLoading = false;
           });
-          return const _LoadingScreen();
+          return;
         }
 
-        final appUser = profileSnapshot.requireData!;
+        // If profile not found → wait and retry
+        _attempt++;
+        debugPrint(
+          "⏳ Profile not found yet for ${firebaseUser.uid} (attempt $_attempt/$_maxRetries)",
+        );
+        await Future.delayed(const Duration(seconds: 1));
+      } catch (e, s) {
+        FirebaseCrashlytics.instance.recordError(
+          e,
+          s,
+          reason: 'Profile load attempt $_attempt failed.',
+        );
+        _attempt++;
+        await Future.delayed(const Duration(seconds: 1));
+      }
+    }
 
-        // Profile loaded, now check for an active subscription.
-        return _SubscriptionWrapper(appUser: appUser);
-      },
-    );
+    // 🚀 Still no profile? Create one automatically
+    try {
+      debugPrint("🆕 No Firestore profile found after retries. Creating default profile for ${firebaseUser.uid}...");
+      final newUser = Swimmer(
+        id: firebaseUser.uid,
+        name: firebaseUser.displayName ?? 'New User',
+        email: firebaseUser.email ?? '',
+
+      );
+      await userRepository.createAppUser(newUser: newUser);
+
+      if (!mounted) return;
+      setState(() {
+        _appUser = newUser;
+        _isLoading = false;
+      });
+    } catch (e, s) {
+      FirebaseCrashlytics.instance.recordError(e, s,
+          reason: 'Auto-create Firestore user after missing profile failed');
+      if (!mounted) return;
+      setState(() {
+        _isLoading = false;
+        _hasError = true;
+      });
+    }
+  }
+
+
+  void _signOutWithError(String reason) {
+    FirebaseCrashlytics.instance.log('Forced sign-out: $reason');
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      FirebaseAuth.instance.signOut();
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_isLoading) {
+      return const _LoadingScreen(message: 'Loading your profile...');
+    }
+
+    if (_hasError || _appUser == null) {
+      // Instead of kicking out the user, show a friendly waiting screen
+      return Scaffold(
+        body: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(Icons.person_outline, size: 64),
+              const SizedBox(height: 20),
+              const Text(
+                'Setting up your profile...',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.w500),
+              ),
+              const SizedBox(height: 12),
+              const Text(
+                'This can take a few seconds. If it doesn’t finish, try restarting the app.',
+                textAlign: TextAlign.center,
+                style: TextStyle(color: Colors.grey),
+              ),
+              const SizedBox(height: 20),
+              ElevatedButton(
+                onPressed: () => FirebaseAuth.instance.signOut(),
+                child: const Text('Back to Sign-In'),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    final appUser = _appUser!;
+    return _SubscriptionWrapper(appUser: appUser);
   }
 }
 
-// REFACTORED: This widget now uses a listener for real-time subscription updates.
+/// Wraps subscription logic around the loaded AppUser.
 class _SubscriptionWrapper extends StatefulWidget {
   final AppUser appUser;
-
   const _SubscriptionWrapper({required this.appUser});
 
   @override
   State<_SubscriptionWrapper> createState() => _SubscriptionWrapperState();
 }
 
-// REFACTORED: This state now manages permissions reactively.
-// It no longer uses a FutureBuilder, but instead listens to a stream of updates
-// from RevenueCat and rebuilds its child UI accordingly. This is more robust
-// for handling subscription changes that happen outside the app (e.g., from
-// the App Store settings) or when entitlement access is granted with a delay.
 class _SubscriptionWrapperState extends State<_SubscriptionWrapper> {
   PermissionLevel? _permissionLevel;
   bool _isLoading = true;
@@ -129,72 +226,55 @@ class _SubscriptionWrapperState extends State<_SubscriptionWrapper> {
   @override
   void initState() {
     super.initState();
-    // 1. Set up the listener to react to any changes in customer info.
     Purchases.addCustomerInfoUpdateListener(_onCustomerInfoUpdated);
-    // 2. Fetch the initial permission state when the widget is first built.
     _initializePermissions();
   }
 
   @override
   void dispose() {
-    // 3. Clean up the listener when the widget is removed from the tree.
     Purchases.removeCustomerInfoUpdateListener(_onCustomerInfoUpdated);
     super.dispose();
   }
 
-  /// This function is the callback for the RevenueCat listener.
-  /// It's triggered whenever subscription information changes.
-  void _onCustomerInfoUpdated(CustomerInfo customerInfo) {
-    if (kDebugMode) {
-      debugPrint("✅ CustomerInfo Listener Fired!");
-      debugPrint("Listener - Active Entitlements: ${customerInfo.entitlements.active.keys}");
-    }
-    _updatePermissionsFromInfo(customerInfo);
-  }
-
-  /// Fetches the initial customer info from RevenueCat.
   Future<void> _initializePermissions() async {
     try {
-      await Purchases.logIn("0m3oOjbx4wZC2dVRp07iYiQ2KA72");
-
-      // It's good practice to log in to ensure the user context is correct.
       await Purchases.logIn(widget.appUser.id);
-      final customerInfo = await Purchases.getCustomerInfo();
-      _updatePermissionsFromInfo(customerInfo);
+      final info = await Purchases.getCustomerInfo();
+      _updatePermissions(info);
     } catch (e, s) {
       FirebaseCrashlytics.instance.recordError(e, s,
-        reason: 'Initial RevenueCat permission check failed',
-      );
-      // If the initial check fails, default to no permissions.
-      if (mounted) {
-        setState(() {
-          _permissionLevel = PermissionLevel(appUser: widget.appUser);
-          _isLoading = false;
-        });
-      }
+          reason: 'Initial RevenueCat permission check failed');
+      if (!mounted) return;
+      setState(() {
+        _permissionLevel = PermissionLevel(appUser: widget.appUser);
+        _isLoading = false;
+      });
     }
   }
 
-  /// Centralized logic to process `CustomerInfo` and update the state.
-  /// This is called by both the initial fetch and the listener.
-  void _updatePermissionsFromInfo(CustomerInfo customerInfo) {
-    final hasProSwimmer =
-    customerInfo.entitlements.active.containsKey('swim_analyzer_pro_single');
-    final hasProCoach =
-    customerInfo.entitlements.active.containsKey('swim_analyzer_pro_team');
+  void _onCustomerInfoUpdated(CustomerInfo info) {
+    if (kDebugMode) {
+      debugPrint("✅ CustomerInfo updated: ${info.entitlements.active.keys}");
+    }
+    _updatePermissions(info);
+  }
 
-    final newPermissionLevel = PermissionLevel(
+  void _updatePermissions(CustomerInfo info) {
+    final hasSwimmer =
+    info.entitlements.active.containsKey('swim_analyzer_pro_single');
+    final hasCoach =
+    info.entitlements.active.containsKey('swim_analyzer_pro_team');
+
+    final newPerms = PermissionLevel(
       appUser: widget.appUser,
-      hasSwimmerSubscription: hasProSwimmer,
-      hasCoachSubscription: hasProCoach,
+      hasSwimmerSubscription: hasSwimmer,
+      hasCoachSubscription: hasCoach,
     );
 
-    // Only call setState if the permission level has actually changed or if
-    // we are moving out of the initial loading state. This prevents
-    // unnecessary rebuilds of the widget tree.
-    if (mounted && (_permissionLevel != newPermissionLevel || _isLoading)) {
+    if (!mounted) return;
+    if (_permissionLevel != newPerms || _isLoading) {
       setState(() {
-        _permissionLevel = newPermissionLevel;
+        _permissionLevel = newPerms;
         _isLoading = false;
       });
     }
@@ -202,29 +282,22 @@ class _SubscriptionWrapperState extends State<_SubscriptionWrapper> {
 
   @override
   Widget build(BuildContext context) {
-    // While loading, show a simple loading screen.
     if (_isLoading || _permissionLevel == null) {
       return const _LoadingScreen(message: 'Verifying subscription...');
     }
 
-    final permissions = _permissionLevel!;
-
-    // Based on the current permission state, show either the app or the paywall.
-    // This will automatically rebuild whenever the listener fires and updates the state.
-    if (permissions.hasActiveSubscription) {
-      return Provider<PermissionLevel>.value(
-        value: permissions,
-        child: const HomePage(),
-      );
-    } else {
-      return PaywallPage(appUser: widget.appUser);
-    }
+    final perms = _permissionLevel!;
+    return perms.hasActiveSubscription
+        ? Provider<PermissionLevel>.value(
+      value: perms,
+      child: const HomePage(),
+    )
+        : PaywallPage(appUser: widget.appUser);
   }
 }
 
 class _LoadingScreen extends StatelessWidget {
   final String? message;
-
   const _LoadingScreen({this.message});
 
   @override

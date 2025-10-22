@@ -218,25 +218,25 @@ class _OffTheBlockResultsPageState extends State<OffTheBlockResultsPage> {
     }).toList();
 
     // --- Speed Metrics ---
-    final timeTo5m = widget.markedTimestamps[OffTheBlockEvent.reached5m];
+    //final timeTo5m = widget.markedTimestamps[OffTheBlockEvent.reached5m];
     final timeTo10m = widget.markedTimestamps[OffTheBlockEvent.reached10m];
     bool addedSpeedDivider = false;
 
-    if (timeTo5m != null) {
-      if (!addedSpeedDivider) {
-        resultsWidgets.add(const Divider());
-        addedSpeedDivider = true;
-      }
-      final relativeTimeTo5m = timeTo5m - startSignalTime;
-      if (relativeTimeTo5m.inMilliseconds > 0) {
-        final speedTo5m = 5 / (relativeTimeTo5m.inMilliseconds / 1000.0);
-        resultsWidgets.add(ListTile(
-          title: const Text('Average Speed to 5m'),
-          trailing: Text('${speedTo5m.toStringAsFixed(2)} m/s'),
-          dense: true,
-        ));
-      }
-    }
+    // if (timeTo5m != null) {
+    //   if (!addedSpeedDivider) {
+    //     resultsWidgets.add(const Divider());
+    //     addedSpeedDivider = true;
+    //   }
+    //   final relativeTimeTo5m = timeTo5m - startSignalTime;
+    //   if (relativeTimeTo5m.inMilliseconds > 0) {
+    //     final speedTo5m = 5 / (relativeTimeTo5m.inMilliseconds / 1000.0);
+    //     resultsWidgets.add(ListTile(
+    //       title: const Text('Average Speed to 5m'),
+    //       trailing: Text('${speedTo5m.toStringAsFixed(2)} m/s'),
+    //       dense: true,
+    //     ));
+    //   }
+    // }
 
     if (timeTo10m != null) {
       if (!addedSpeedDivider) {

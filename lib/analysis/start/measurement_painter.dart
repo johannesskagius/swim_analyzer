@@ -1,4 +1,3 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 class MeasurementPainter extends CustomPainter {
@@ -8,7 +7,7 @@ class MeasurementPainter extends CustomPainter {
   static const double pointRadius = 2.0;
   static const double handleYOffset = 30.0;
   static const double selectedPointRadius = 1.5;
-  static const double handleTouchRadius = 10.0; // Increased visual touch area
+  static const double handleTouchRadius = 8.0; // Increased visual touch area
 
   MeasurementPainter({required this.points, this.selectedPointIndex});
 
@@ -29,7 +28,8 @@ class MeasurementPainter extends CustomPainter {
     if (points.length >= 4) canvas.drawLine(points[2], points[3], refLinePaint);
 
     // Draw distance line (red)
-    if (points.length >= 6) canvas.drawLine(points[4], points[5], distLinePaint);
+    if (points.length >= 6)
+      canvas.drawLine(points[4], points[5], distLinePaint);
 
     // Draw points and handles on top
     for (int i = 0; i < points.length; i++) {
@@ -80,13 +80,15 @@ class MeasurementPainter extends CustomPainter {
       textPainter.layout();
 
 // Draw the icon
-      final textOffset = point - Offset(textPainter.width / 2, textPainter.height / 2);
+      final textOffset =
+          point - Offset(textPainter.width / 2, textPainter.height / 2);
       textPainter.paint(canvas, textOffset);
 
 // Draw an *invisible padding area* around the icon for easier hit testing
 // This is what simulates a "Container" around the icon.
       final hitBoxSize = 36.0; // You can tweak this
-      final hitRect = Rect.fromCenter(center: point, width: hitBoxSize, height: hitBoxSize);
+      final hitRect =
+          Rect.fromCenter(center: point, width: hitBoxSize, height: hitBoxSize);
 
       // final iconOffset = handleCenter - Offset(textPainter.width / 2, textPainter.height / 2);
       // textPainter.paint(canvas, iconOffset);
@@ -95,6 +97,7 @@ class MeasurementPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant MeasurementPainter oldDelegate) {
-    return oldDelegate.points != points || oldDelegate.selectedPointIndex != selectedPointIndex;
+    return oldDelegate.points != points ||
+        oldDelegate.selectedPointIndex != selectedPointIndex;
   }
 }

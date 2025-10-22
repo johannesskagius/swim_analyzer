@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 class MeasurementPainter extends CustomPainter {
@@ -6,8 +7,8 @@ class MeasurementPainter extends CustomPainter {
 
   static const double pointRadius = 2.0;
   static const double handleYOffset = 30.0;
-  static const double selectedPointRadius = 3.0;
-  static const double handleTouchRadius = 30.0; // Increased visual touch area
+  static const double selectedPointRadius = 1.5;
+  static const double handleTouchRadius = 10.0; // Increased visual touch area
 
   MeasurementPainter({required this.points, this.selectedPointIndex});
 
@@ -58,11 +59,11 @@ class MeasurementPainter extends CustomPainter {
 
       // Draw the semi-transparent touch area background
       final handleBgPaint = Paint()
-        ..color = (isSelected ? Colors.yellow.withAlpha(30) : Colors.white.withAlpha(20));
+        ..color = (isSelected ? Colors.yellow.withAlpha(30) : Colors.black87);
       canvas.drawCircle(handleCenter, handleTouchRadius, handleBgPaint);
 
       // Draw the icon on top
-      final icon = Icons.control_camera;
+      final icon = Icons.arrow_drop_up;
       final textPainter = TextPainter(
         text: TextSpan(
           text: String.fromCharCode(icon.codePoint),
@@ -77,8 +78,18 @@ class MeasurementPainter extends CustomPainter {
         textDirection: TextDirection.ltr,
       );
       textPainter.layout();
-      final iconOffset = handleCenter - Offset(textPainter.width / 2, textPainter.height / 2);
-      textPainter.paint(canvas, iconOffset);
+
+// Draw the icon
+      final textOffset = point - Offset(textPainter.width / 2, textPainter.height / 2);
+      textPainter.paint(canvas, textOffset);
+
+// Draw an *invisible padding area* around the icon for easier hit testing
+// This is what simulates a "Container" around the icon.
+      final hitBoxSize = 36.0; // You can tweak this
+      final hitRect = Rect.fromCenter(center: point, width: hitBoxSize, height: hitBoxSize);
+
+      // final iconOffset = handleCenter - Offset(textPainter.width / 2, textPainter.height / 2);
+      // textPainter.paint(canvas, iconOffset);
     }
   }
 

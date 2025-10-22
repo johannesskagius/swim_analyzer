@@ -155,6 +155,8 @@ class _SubscriptionWrapperState extends State<_SubscriptionWrapper> {
   /// Fetches the initial customer info from RevenueCat.
   Future<void> _initializePermissions() async {
     try {
+      await Purchases.logIn("0m3oOjbx4wZC2dVRp07iYiQ2KA72");
+
       // It's good practice to log in to ensure the user context is correct.
       await Purchases.logIn(widget.appUser.id);
       final customerInfo = await Purchases.getCustomerInfo();

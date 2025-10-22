@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 
 class MeasurementPainter extends CustomPainter {
   final List<Offset> points;
@@ -7,12 +8,21 @@ class MeasurementPainter extends CustomPainter {
   static const double pointRadius = 2.0;
   static const double handleYOffset = 30.0;
   static const double selectedPointRadius = 1.5;
-  static const double handleTouchRadius = 8.0; // Increased visual touch area
+  static const double handleTouchRadius = 20.0; // Increased visual touch area
 
   MeasurementPainter({required this.points, this.selectedPointIndex});
 
+  static bool isPointHit(Offset position, Offset point) {
+    // center of the handle, not the point itself
+    final handleCenter = point + const Offset(0, handleYOffset);
+    final hitRect = Rect.fromCircle(center: handleCenter, radius: handleTouchRadius);
+    return hitRect.contains(position);
+  }
+
   @override
   void paint(Canvas canvas, Size size) {
+    print(selectedPointIndex);
+
     final refLinePaint = Paint()
       ..color = Colors.blue.withAlpha(90)
       ..strokeWidth = 1.5
@@ -59,17 +69,17 @@ class MeasurementPainter extends CustomPainter {
 
       // Draw the semi-transparent touch area background
       final handleBgPaint = Paint()
-        ..color = (isSelected ? Colors.yellow.withAlpha(30) : Colors.black87);
+        ..color = (isSelected ? Colors.yellow.withAlpha(30) : Colors.black87.withAlpha(80));
       canvas.drawCircle(handleCenter, handleTouchRadius, handleBgPaint);
 
       // Draw the icon on top
-      final icon = Icons.arrow_drop_up;
+      final icon = FontAwesomeIcons.crosshairs;
       final textPainter = TextPainter(
         text: TextSpan(
           text: String.fromCharCode(icon.codePoint),
           style: TextStyle(
             color: isSelected ? Colors.yellow : Colors.white,
-            fontSize: 24,
+            fontSize: 10,
             fontFamily: icon.fontFamily,
             package: icon.fontPackage,
             shadows: const [Shadow(color: Colors.black87, blurRadius: 5)],
@@ -83,15 +93,6 @@ class MeasurementPainter extends CustomPainter {
       final textOffset =
           point - Offset(textPainter.width / 2, textPainter.height / 2);
       textPainter.paint(canvas, textOffset);
-
-// Draw an *invisible padding area* around the icon for easier hit testing
-// This is what simulates a "Container" around the icon.
-      final hitBoxSize = 36.0; // You can tweak this
-      final hitRect =
-          Rect.fromCenter(center: point, width: hitBoxSize, height: hitBoxSize);
-
-      // final iconOffset = handleCenter - Offset(textPainter.width / 2, textPainter.height / 2);
-      // textPainter.paint(canvas, iconOffset);
     }
   }
 

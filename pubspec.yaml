@@ -39,6 +39,7 @@ dependencies:
     git:
       url: git@github.com:johannesskagius/swim_apps_shared.git
       ref: master
+  font_awesome_flutter: ^10.12.0
 
 dev_dependencies:
   flutter_test:

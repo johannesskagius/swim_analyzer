@@ -250,13 +250,13 @@ class _OffTheBlockAnalysisPageState extends State<OffTheBlockAnalysisPage> {
     }
     switch (_measurementStep) {
       case 0:
-        return '1/5: Tap start of 5m marker on LEFT lane rope';
+        return '1/5: Tap start of the closet lane rope';
       case 1:
-        return '2/5: Tap end of 5m marker on LEFT lane rope';
+        return '2/5: Tap 5m mark of the closet lane rope';
       case 2:
-        return '3/5: Tap start of 5m marker on RIGHT lane rope';
+        return '3/5: Tap start of the furthest lane rope';
       case 3:
-        return '4/5: Tap end of 5m marker on RIGHT lane rope';
+        return '4/5: Tap 5m mark of the furthest lane rope';
       case 4:
       // This step is now skipped as Start (Block) is auto-added
         return 'Calculating block position...';
@@ -392,6 +392,8 @@ class _OffTheBlockAnalysisPageState extends State<OffTheBlockAnalysisPage> {
       onInteractionEnd: null,
       child: GestureDetector(
         onTapUp: (details) {
+          print('MeasurementStep: $_measurementStep');
+          print('MeasurementPoints length: ${_measurementPoints.length}');
           // 1. Check guards
           if (!_isMeasuring ||
               _isPointDragInProgress ||
@@ -417,7 +419,6 @@ class _OffTheBlockAnalysisPageState extends State<OffTheBlockAnalysisPage> {
           }
 
           // 4. Determine the new point's position
-
           if (_measurementStep < 3) {
             // --- LOGIC FOR LANE MARKS (Steps 0, 1, 2) ---
             setState(() {
@@ -453,14 +454,13 @@ class _OffTheBlockAnalysisPageState extends State<OffTheBlockAnalysisPage> {
           _transformationController.toScene(details.localPosition);
           int? hitIndex;
 
-          // Check all points EXCEPT index 4
+          // Check all points EXCEPT index 5 which is auto
           for (int i = _measurementPoints.length - 1; i >= 0; i--) {
-            if (i == 4) continue; // CANNOT drag point 4
-
-            final handleCenter = _measurementPoints[i] +
-                const Offset(0, MeasurementPainter.handleYOffset);
-            if ((sceneOffset - handleCenter).distance <
-                MeasurementPainter.handleTouchRadius) {
+            if (i == 4) {
+              //_measurementStep++;
+              continue; // skip auto point
+            }
+            if (MeasurementPainter.isPointHit(sceneOffset, _measurementPoints[i])) {
               hitIndex = i;
               break;
             }
@@ -912,114 +912,131 @@ class _OffTheBlockAnalysisPageState extends State<OffTheBlockAnalysisPage> {
     final allEventsMarked = OffTheBlockEvent.values
         .every((event) => _markedTimestamps.containsKey(event));
 
+    final isVideoLoaded = _controller?.value.isInitialized == true;
+
     return Padding(
       padding: const EdgeInsets.all(16.0),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
+      child: Wrap(
+        spacing: 12,
+        runSpacing: 12,
+        alignment: WrapAlignment.center,
         children: [
-          ElevatedButton.icon(
-            onPressed: _pickVideo,
-            icon: const Icon(Icons.video_library),
-            label: Text(_controller == null
-                ? 'Select Video'
-                : 'Select Different Video'),
-            style: ElevatedButton.styleFrom(
-                minimumSize: const Size(double.infinity, 50)),
-          ),
-          const SizedBox(height: 10),
-          ElevatedButton.icon(
-            onPressed:
-            _controller?.value.isInitialized == true && allEventsMarked
-                ? _calculateResults
-                : null,
-            icon: const Icon(Icons.analytics),
-            label: const Text('Calculate Results'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Theme.of(context).colorScheme.primary,
-              foregroundColor: Theme.of(context).colorScheme.onPrimary,
-              minimumSize: const Size(double.infinity, 50),
+          if (!isVideoLoaded)
+            ElevatedButton.icon(
+              onPressed: _pickVideo,
+              icon: const Icon(Icons.video_library),
+              label: const Text('Select Video'),
             ),
-          ),
+
+          if (isVideoLoaded && allEventsMarked)
+            ElevatedButton.icon(
+              onPressed: _calculateResults,
+              icon: const Icon(Icons.calculate_outlined),
+              label: const Text('Calculate'),
+            ),
+
+          if (_isMeasuring && _measurementStep != 6)
+            ElevatedButton.icon(
+              onPressed: (){
+                _measurementPoints.clear();
+                setState(() {
+                  _isMeasuring = false;
+                  _measurementStep = 0;
+                });
+              },
+              icon: const Icon(Icons.exit_to_app),
+              label: const Text('Exit'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.redAccent,
+                foregroundColor: Colors.black,
+              ),
+            ),
+
+          if (_isMeasuring && _measurementPoints.isNotEmpty)
+            ElevatedButton.icon(
+              onPressed: (){
+                setState(() {
+                  ///Step four is autogenerated hence the user should never end up there
+                  if(_measurementPoints.length == 6){
+                    _measurementStep=4;
+                    _measurementPoints.removeLast();
+                    _measurementPoints.removeLast();
+                  }else{
+                    _measurementStep--;
+                    _measurementPoints.removeLast();
+                  }
+                });
+              },
+              icon: const Icon(Icons.undo),
+              label: const Text('Undo'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.orangeAccent,
+                foregroundColor: Colors.black,
+              ),
+            ),
+
+          if (_isMeasuring && _measurementPoints.length == 6)
+            ElevatedButton.icon(
+              onPressed: _calculateMeasuredDistance,
+              icon: const Icon(Icons.straighten),
+              label: const Text('Set Distance'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.green,
+                foregroundColor: Colors.white,
+              ),
+            ),
         ],
       ),
     );
   }
 
+
   @override
   Widget build(BuildContext context) {
-    return Stack(children: [
-      Scaffold(
-        appBar: AppBar(title: const Text("Off the Block Analysis")),
-        body: Column(
-          children: [
-            if (_isMeasuring)
-              Container(
-                color: Colors.blue.withAlpha(10),
-                width: double.infinity,
-                height: 110.0,
-                alignment: Alignment.center,
-                padding: const EdgeInsets.all(12.0),
-                child: SingleChildScrollView(
-                  // FIX: Prevents overflow
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      if (_getMeasurementInstruction().isNotEmpty)
-                        Text(_getMeasurementInstruction(),
-                            textAlign: TextAlign.center,
-                            style: const TextStyle(
-                                fontWeight: FontWeight.bold, fontSize: 16)),
-                      // Check for 6 points
-                      if (_measurementPoints.length == 6) ...[
-                        const SizedBox(height: 8),
-                        ElevatedButton.icon(
-                          onPressed: () => _calculateMeasuredDistance(),
-                          icon: const Icon(Icons.straighten),
-                          label: const Text('Set Distance'),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.green,
-                            foregroundColor: Colors.white,
-                          ),
-                        ),
-                      ],
-                    ],
-                  ),
-                ),
-              ),
-            Expanded(
-              flex: 2,
-              child: Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: _isLoading
-                    ? const Center(child: CircularProgressIndicator())
-                    : _controller == null
-                    ? _buildVideoSelectionPrompt()
-                    : _buildVideoPlayer(),
-              ),
-            ),
-            if (_controller != null && !_isLoading)
-              Expanded(flex: 3, child: _buildMarkingInterface()),
-            if (!_isLoading) _buildActionButtons(),
-          ],
-        ),
-      ),
-      if (_isDetecting)
-        Container(
-          color: Colors.black45,
-          child: const Center(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                CircularProgressIndicator(color: Colors.white),
-                SizedBox(height: 16),
-                Text("Analyzing 5m marks...",
-                    style: TextStyle(color: Colors.white)),
-              ],
+    return Scaffold(
+      appBar: AppBar(title: const Text("Off the Block Analysis")),
+      body: Column(
+        children: [
+          Expanded(
+            flex: 2,
+            child: Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: _isLoading
+                  ? const Center(child: CircularProgressIndicator())
+                  : _controller == null
+                  ? _buildVideoSelectionPrompt()
+                  : _buildVideoPlayer(),
             ),
           ),
-        ),
-    ]);
+          Divider(),
+          if (_isMeasuring)
+            Container(
+              color: Colors.blue.withAlpha(10),
+              width: double.infinity,
+              height: 110.0,
+              alignment: Alignment.center,
+              padding: const EdgeInsets.all(12.0),
+              child: SingleChildScrollView(
+                // FIX: Prevents overflow
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    if (_getMeasurementInstruction().isNotEmpty)
+                      Text(_getMeasurementInstruction(),
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                              fontWeight: FontWeight.bold, fontSize: 16)),
+                  ],
+                ),
+              ),
+            ),
+          if (_controller != null && !_isLoading)
+            Expanded(flex: 3, child: _buildMarkingInterface()),
+          if (!_isLoading) _buildActionButtons(),
+        ],
+      ),
+    );
   }
 }
 

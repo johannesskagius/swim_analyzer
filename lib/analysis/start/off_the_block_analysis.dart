@@ -406,14 +406,19 @@ class _OffTheBlockAnalysisPageState extends State<OffTheBlockAnalysisPage> {
           _transformationController.toScene(details.localPosition);
 
           // 3. Check for handle tap (to prevent adding a new point)
+          // --- FIX: Define a larger, more generous touch radius for grabbing handles ---
+          const double largerHandleTouchRadius = 30.0;
+
           for (int i = 0; i < _measurementPoints.length; i++) {
             // Special case: DON'T allow tapping handle 4
             if (i == 4) continue;
 
             final handleCenter = _measurementPoints[i] +
                 const Offset(0, MeasurementPainter.handleYOffset);
+
+            // --- FIX: Use the larger touch radius ---
             if ((sceneOffset - handleCenter).distance <
-                MeasurementPainter.handleTouchRadius) {
+                largerHandleTouchRadius) {
               return; // User tapped a handle, do nothing.
             }
           }
@@ -454,13 +459,24 @@ class _OffTheBlockAnalysisPageState extends State<OffTheBlockAnalysisPage> {
           _transformationController.toScene(details.localPosition);
           int? hitIndex;
 
-          // Check all points EXCEPT index 5 which is auto
+          // --- FIX: Define a larger, more generous touch radius for grabbing handles ---
+          const double largerHandleTouchRadius = 30.0;
+
+          // Check all points EXCEPT index 4 (auto-point)
           for (int i = _measurementPoints.length - 1; i >= 0; i--) {
             if (i == 4) {
               //_measurementStep++;
               continue; // skip auto point
             }
-            if (MeasurementPainter.isPointHit(sceneOffset, _measurementPoints[i])) {
+
+            // --- FIX ---
+            // The original code was not checking the handle's visual position.
+            // This logic now matches the handle's *actual* centered position
+            // (using the Y offset) and uses the larger, forgiving touch radius.
+            final handleCenter = _measurementPoints[i] +
+                const Offset(0, MeasurementPainter.handleYOffset);
+
+            if ((sceneOffset - handleCenter).distance < largerHandleTouchRadius) {
               hitIndex = i;
               break;
             }
@@ -997,8 +1013,9 @@ class _OffTheBlockAnalysisPageState extends State<OffTheBlockAnalysisPage> {
       appBar: AppBar(title: const Text("Off the Block Analysis")),
       body: Column(
         children: [
-          Expanded(
-            flex: 2,
+          SizedBox(
+            width: MediaQuery.of(context).size.width,
+            height: MediaQuery.of(context).size.width / 1.78, // ≈ 16:9 ratio
             child: Padding(
               padding: const EdgeInsets.all(16.0),
               child: _isLoading
@@ -1008,6 +1025,7 @@ class _OffTheBlockAnalysisPageState extends State<OffTheBlockAnalysisPage> {
                   : _buildVideoPlayer(),
             ),
           ),
+
           Divider(),
           if (_isMeasuring)
             Container(
@@ -1054,7 +1072,7 @@ class _JumpOverlayPainter extends CustomPainter {
       text: TextSpan(
         text: text,
         style: TextStyle(
-            color: color, backgroundColor: Colors.black54, fontSize: 14),
+            color: color, backgroundColor: Colors.black54, fontSize: 10),
       ),
       textDirection: TextDirection.ltr,
     )..layout();
@@ -1148,7 +1166,7 @@ class _JumpOverlayPainter extends CustomPainter {
             style: const TextStyle(
               color: Colors.white,
               backgroundColor: Colors.black87,
-              fontSize: 16,
+              fontSize: 12,
               fontWeight: FontWeight.bold,
             ),
           ),

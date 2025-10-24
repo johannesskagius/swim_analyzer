@@ -1,0 +1,49 @@
+{
+  "project_info": {
+    "project_number": "418096768013",
+    "firebase_url": "https://swim-coach-support-default-rtdb.europe-west1.firebasedatabase.app",
+    "project_id": "swim-coach-support",
+    "storage_bucket": "swim-coach-support.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:418096768013:android:a720ca4fa5b7c8d9d46144",
+        "android_client_info": {
+          "package_name": "com.example.swim_analyzer"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCalX-tvbeOhCROsrNXuUpSPDNw_CiYUwI"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:418096768013:android:48cc772c70c685dbd46144",
+        "android_client_info": {
+          "package_name": "com.skagius.swimify"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCalX-tvbeOhCROsrNXuUpSPDNw_CiYUwI"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

@@ -24,10 +24,7 @@ class DefaultFirebaseOptions {
     }
     switch (defaultTargetPlatform) {
       case TargetPlatform.android:
-        throw UnsupportedError(
-          'DefaultFirebaseOptions have not been configured for android - '
-          'you can reconfigure this by running the FlutterFire CLI again.',
-        );
+        return android;
       case TargetPlatform.iOS:
         return ios;
       case TargetPlatform.macOS:
@@ -57,9 +54,18 @@ class DefaultFirebaseOptions {
     appId: '1:418096768013:ios:060bfd0d390ee083d46144',
     messagingSenderId: '418096768013',
     projectId: 'swim-coach-support',
-    databaseURL:
-        'https://swim-coach-support-default-rtdb.europe-west1.firebasedatabase.app',
+    databaseURL: 'https://swim-coach-support-default-rtdb.europe-west1.firebasedatabase.app',
     storageBucket: 'swim-coach-support.firebasestorage.app',
     iosBundleId: 'com.example.swimAnalyzer',
   );
+
+  static const FirebaseOptions android = FirebaseOptions(
+    apiKey: 'AIzaSyCalX-tvbeOhCROsrNXuUpSPDNw_CiYUwI',
+    appId: '1:418096768013:android:a720ca4fa5b7c8d9d46144',
+    messagingSenderId: '418096768013',
+    projectId: 'swim-coach-support',
+    databaseURL: 'https://swim-coach-support-default-rtdb.europe-west1.firebasedatabase.app',
+    storageBucket: 'swim-coach-support.firebasestorage.app',
+  );
+
 }

@@ -15,7 +15,8 @@ class MeasurementPainter extends CustomPainter {
   static bool isPointHit(Offset position, Offset point) {
     // center of the handle, not the point itself
     final handleCenter = point + const Offset(0, handleYOffset);
-    final hitRect = Rect.fromCircle(center: handleCenter, radius: handleTouchRadius);
+    final hitRect =
+        Rect.fromCircle(center: handleCenter, radius: handleTouchRadius);
     return hitRect.contains(position);
   }
 
@@ -69,7 +70,9 @@ class MeasurementPainter extends CustomPainter {
 
       // Draw the semi-transparent touch area background
       final handleBgPaint = Paint()
-        ..color = (isSelected ? Colors.yellow.withAlpha(30) : Colors.black87.withAlpha(80));
+        ..color = (isSelected
+            ? Colors.yellow.withAlpha(30)
+            : Colors.black87.withAlpha(80));
       canvas.drawCircle(handleCenter, handleTouchRadius, handleBgPaint);
 
       // Draw the icon on top
@@ -79,7 +82,7 @@ class MeasurementPainter extends CustomPainter {
           text: String.fromCharCode(icon.codePoint),
           style: TextStyle(
             color: isSelected ? Colors.yellow : Colors.white,
-            fontSize: 10,
+            fontSize: 16,
             fontFamily: icon.fontFamily,
             package: icon.fontPackage,
             shadows: const [Shadow(color: Colors.black87, blurRadius: 5)],

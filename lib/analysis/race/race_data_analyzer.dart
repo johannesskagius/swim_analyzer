@@ -1,4 +1,8 @@
+import 'package:swim_apps_shared/objects/pool_length.dart';
+import 'package:swim_apps_shared/objects/race_segment.dart';
 import 'package:swim_apps_shared/swim_apps_shared.dart';
+import 'package:swim_apps_shared/swim_session/events/checkpoint.dart';
+import 'package:swim_apps_shared/swim_session/events/event.dart';
 
 class RaceDataAnalyzer {
   final List<RaceSegment> recordedSegments;

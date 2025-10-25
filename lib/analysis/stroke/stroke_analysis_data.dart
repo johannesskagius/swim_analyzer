@@ -1,4 +1,6 @@
 
+import 'package:swim_apps_shared/objects/intensity_zones.dart';
+import 'package:swim_apps_shared/objects/stroke.dart';
 import 'package:swim_apps_shared/swim_apps_shared.dart';
 import 'package:swim_analyzer/analysis/stroke/stroke_efficiency_event.dart';
 

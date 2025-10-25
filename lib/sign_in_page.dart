@@ -11,6 +11,7 @@ import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 import 'package:swim_analyzer/home_page.dart';
 import 'package:swim_analyzer/revenue_cat/paywall_page.dart';
 import 'package:swim_analyzer/revenue_cat/purchases_service.dart';
+import 'package:swim_apps_shared/objects/user/user.dart';
 import 'package:swim_apps_shared/swim_apps_shared.dart';
 
 class SignInPage extends StatefulWidget {

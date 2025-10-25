@@ -1,5 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:swim_apps_shared/objects/off_the_block_model.dart';
+import 'package:swim_apps_shared/objects/user/coach.dart';
+import 'package:swim_apps_shared/objects/user/swimmer.dart';
+import 'package:swim_apps_shared/objects/user/user.dart';
+import 'package:swim_apps_shared/objects/user/user_types.dart';
 import 'package:swim_apps_shared/swim_apps_shared.dart';
 
 import 'off_the_block_enums.dart';

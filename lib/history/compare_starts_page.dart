@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import 'package:swim_analyzer/analysis/start/off_the_block_enums.dart';
+import 'package:swim_apps_shared/objects/off_the_block_model.dart';
+import 'package:swim_apps_shared/objects/user/user.dart';
 import 'package:swim_apps_shared/swim_apps_shared.dart';
 
 class CompareStartsPage extends StatefulWidget {

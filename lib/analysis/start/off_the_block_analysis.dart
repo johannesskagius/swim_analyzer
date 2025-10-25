@@ -7,7 +7,7 @@ import 'package:image/image.dart' as imgLib;
 import 'package:image_picker/image_picker.dart';
 import 'package:swim_analyzer/analysis/start/start_analysis_controls_overlay.dart';
 import 'package:swim_analyzer/analysis/time_line_painter.dart';
-import 'package:swim_apps_shared/swim_apps_shared.dart';
+import 'package:swim_apps_shared/objects/user/user.dart';
 import 'package:tflite_flutter/tflite_flutter.dart';
 import 'package:video_player/video_player.dart';
 import 'package:video_thumbnail/video_thumbnail.dart';

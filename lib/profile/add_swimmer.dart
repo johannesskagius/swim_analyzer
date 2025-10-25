@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:swim_apps_shared/objects/user/coach.dart';
+import 'package:swim_apps_shared/objects/user/swimmer.dart';
 import 'package:swim_apps_shared/swim_apps_shared.dart';
 
 /// A page that allows a coach to create a new swimmer profile.

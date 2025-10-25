@@ -2,7 +2,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:swim_analyzer/analysis/time_line_painter.dart';
+import 'package:swim_apps_shared/objects/race_segment.dart';
 import 'package:swim_apps_shared/swim_apps_shared.dart';
+import 'package:swim_apps_shared/swim_session/events/checkpoint.dart';
+import 'package:swim_apps_shared/swim_session/events/event.dart';
 import 'package:video_player/video_player.dart';
 
 abstract class AnalysisUIBaseState<T extends StatefulWidget> extends State<T> {

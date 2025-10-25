@@ -5,7 +5,7 @@ import 'package:swim_analyzer/analysis/race/race_analysis.dart';
 import 'package:swim_analyzer/analysis/start/start_analysis.dart';
 import 'package:swim_analyzer/analysis/stroke/stroke_analyzes_widget.dart';
 import 'package:swim_analyzer/analysis/turn/turn_analysis_page.dart';
-import 'package:swim_apps_shared/src/objects/user.dart';
+import 'package:swim_apps_shared/objects/user/user.dart';
 import 'package:swim_apps_shared/swim_apps_shared.dart';
 
 class PickAnalysis extends StatelessWidget {

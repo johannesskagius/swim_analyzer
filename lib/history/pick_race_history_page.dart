@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:swim_analyzer/history/off_the_block_history_page.dart';
 // FIX: Added the missing import for RaceHistoryPage.
 import 'package:swim_analyzer/history/stroke_history_page.dart';
+import 'package:swim_apps_shared/objects/user/user.dart';
+import 'package:swim_apps_shared/race_analyzes/race_history_page.dart';
 import 'package:swim_apps_shared/swim_apps_shared.dart';
 
 const double _kVerticalSpacing = 10.0;
@@ -74,7 +76,6 @@ class PickRaceHistoryPage extends StatelessWidget {
             onTap: () {
               _navigateToPage(
                 context,
-                // FIX: Added the required 'appUser' parameter.
                 RaceHistoryPage(brandIconAssetPath: 'assets/icon/icon.png'),
               );
             },

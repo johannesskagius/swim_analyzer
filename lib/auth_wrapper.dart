@@ -9,6 +9,8 @@ import 'package:purchases_flutter/purchases_flutter.dart';
 import 'package:swim_analyzer/home_page.dart';
 import 'package:swim_analyzer/revenue_cat/paywall_page.dart';
 import 'package:swim_analyzer/sign_in_page.dart';
+import 'package:swim_apps_shared/objects/user/swimmer.dart';
+import 'package:swim_apps_shared/objects/user/user.dart';
 import 'package:swim_apps_shared/swim_apps_shared.dart';
 
 /// Represents a user's entitlements/subscriptions.

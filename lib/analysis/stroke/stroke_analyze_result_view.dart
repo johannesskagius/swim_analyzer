@@ -5,6 +5,10 @@ import 'package:swim_analyzer/analysis/stroke/stroke_analysis_repository.dart';
 import 'package:swim_analyzer/analysis/stroke/stroke_efficiency_event.dart';
 import 'package:swim_analyzer/analysis/stroke/stroke_segment_matrix.dart';
 import 'package:swim_analyzer/analysis/stroke/stroke_under_water_matrix.dart';
+import 'package:swim_apps_shared/objects/intensity_zones.dart';
+import 'package:swim_apps_shared/objects/stroke.dart';
+import 'package:swim_apps_shared/objects/user/user.dart';
+import 'package:swim_apps_shared/objects/user/user_types.dart';
 import 'package:swim_apps_shared/swim_apps_shared.dart';
 
 class StrokeAnalysisResultView extends StatefulWidget {

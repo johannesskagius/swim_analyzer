@@ -8,6 +8,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:purchases_flutter/purchases_flutter.dart';
 import 'package:swim_analyzer/auth_wrapper.dart';
+import 'package:swim_apps_shared/objects/user/user.dart';
 import 'package:swim_apps_shared/swim_apps_shared.dart';
 
 class PaywallPage extends StatefulWidget {

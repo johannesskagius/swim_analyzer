@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:swim_analyzer/analysis/start/off_the_block_analysis.dart';
+import 'package:swim_apps_shared/objects/user/user.dart';
 import 'package:swim_apps_shared/swim_apps_shared.dart';
 
 enum StartAnalyzes {

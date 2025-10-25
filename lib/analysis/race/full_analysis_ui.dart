@@ -3,7 +3,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:swim_analyzer/analysis/race/race_analysis_modes.dart';
 import 'package:swim_analyzer/analysis/race/results_page.dart';
+import 'package:swim_apps_shared/objects/interval_attributes.dart';
+import 'package:swim_apps_shared/objects/stroke.dart';
+import 'package:swim_apps_shared/objects/user/user.dart';
 import 'package:swim_apps_shared/swim_apps_shared.dart';
+import 'package:swim_apps_shared/swim_session/events/checkpoint.dart';
+import 'package:swim_apps_shared/swim_session/events/event.dart';
 import 'package:video_player/video_player.dart';
 
 import 'analysis_level.dart';

@@ -3,6 +3,9 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import 'package:swim_analyzer/history/compare_starts_page.dart';
+import 'package:swim_apps_shared/objects/off_the_block_model.dart';
+import 'package:swim_apps_shared/objects/user/user.dart';
+import 'package:swim_apps_shared/objects/user/user_types.dart';
 import 'package:swim_apps_shared/swim_apps_shared.dart';
 
 class OffTheBlockHistoryPage extends StatefulWidget {
@@ -51,12 +54,18 @@ class _OffTheBlockHistoryPageState extends State<OffTheBlockHistoryPage> {
     }
 
     try {
-      final swimmersList = await repo.getSwimmersForClub(clubId: clubId);
+      final swimmersList = await repo.getUsersByClub(clubId).first;
+      // Step 1: Process the list of swimmers into a map. This is a fast, synchronous operation.
+      final swimmersMap = {for (var s in swimmersList) s.id: s};
+
+      // Step 2: Check if the widget is still in the widget tree before updating its state.
       if (mounted) {
+        // Step 3: Call setState with the fully prepared data to trigger a UI update.
         setState(() {
-          _swimmers = {for (var s in swimmersList) s.id: s};
+          _swimmers = swimmersMap;
         });
       }
+
     } catch (e, s) {
       FirebaseCrashlytics.instance.recordError(
         e,

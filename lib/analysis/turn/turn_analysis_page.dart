@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:swim_analyzer/analysis/turn/turn_event.dart';
 import 'package:swim_analyzer/analysis/turn/turn_result_page.dart';
+import 'package:swim_apps_shared/objects/user/user.dart';
 import 'package:video_player/video_player.dart';
 import 'package:swim_analyzer/analysis/time_line_painter.dart';
 import 'package:swim_apps_shared/swim_apps_shared.dart';

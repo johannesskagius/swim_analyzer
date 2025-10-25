@@ -7,6 +7,9 @@ import 'package:purchases_flutter/purchases_flutter.dart'; // <-- ADD THIS
 import 'package:swim_analyzer/revenue_cat/manage_subscription_page.dart';
 import 'package:swim_analyzer/revenue_cat/purchases_service.dart';
 import 'package:swim_analyzer/theme_provider.dart';
+import 'package:swim_apps_shared/objects/swim_club.dart';
+import 'package:swim_apps_shared/objects/user/user.dart';
+import 'package:swim_apps_shared/objects/user/user_types.dart';
 import 'package:swim_apps_shared/swim_apps_shared.dart';
 
 import 'legal/privacy_policy.dart';

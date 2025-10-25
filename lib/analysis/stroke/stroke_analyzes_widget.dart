@@ -6,6 +6,9 @@ import 'package:image_picker/image_picker.dart';
 import 'package:swim_analyzer/analysis/stroke/stroke_analyze_result_view.dart';
 import 'package:swim_analyzer/analysis/stroke/stroke_efficiency_event.dart';
 import 'package:swim_analyzer/analysis/time_line_painter.dart';
+import 'package:swim_apps_shared/objects/intensity_zones.dart';
+import 'package:swim_apps_shared/objects/stroke.dart';
+import 'package:swim_apps_shared/objects/user/user.dart';
 import 'package:swim_apps_shared/swim_apps_shared.dart';
 import 'package:video_player/video_player.dart';
 

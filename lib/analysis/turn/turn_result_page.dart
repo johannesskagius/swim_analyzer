@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:swim_analyzer/analysis/turn/turn_event.dart';
+import 'package:swim_apps_shared/objects/user/user.dart';
 import 'package:swim_apps_shared/swim_apps_shared.dart';
 
 class TurnResultPage extends StatelessWidget {

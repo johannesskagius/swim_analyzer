@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:swim_analyzer/analysis/stroke/stroke_analysis.dart';
 import 'package:swim_analyzer/analysis/stroke/stroke_analysis_repository.dart';
+import 'package:swim_apps_shared/objects/user/user.dart';
+import 'package:swim_apps_shared/objects/user/user_types.dart';
 import 'package:swim_apps_shared/swim_apps_shared.dart';
 
 import '../analysis/stroke/stroke_analyze_result_view.dart';

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:swim_analyzer/analysis/start/start_analyses_types.dart';
-import 'package:swim_apps_shared/src/objects/user.dart';
+import 'package:swim_apps_shared/objects/user/user.dart';
 
 class StartAnalysis extends StatelessWidget {
   final AppUser appUser;

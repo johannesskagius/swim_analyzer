@@ -4,7 +4,13 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:swim_analyzer/analysis/race/quick_analysis_ui.dart';
+import 'package:swim_apps_shared/objects/stroke.dart';
+import 'package:swim_apps_shared/objects/user/user.dart';
 import 'package:swim_apps_shared/swim_apps_shared.dart';
+import 'package:swim_apps_shared/swim_session/events/event.dart';
+import 'package:swim_apps_shared/swim_session/events/fifty_meter_race.dart';
+import 'package:swim_apps_shared/swim_session/events/hundred_meter_race.dart';
+import 'package:swim_apps_shared/swim_session/events/twenty_five_meter_race.dart';
 import 'package:video_player/video_player.dart';
 
 import 'analysis_level.dart';

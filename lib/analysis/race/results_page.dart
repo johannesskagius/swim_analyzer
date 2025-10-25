@@ -3,7 +3,17 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import 'package:swim_analyzer/analysis/race/race_data_analyzer.dart';
+import 'package:swim_apps_shared/objects/analyzed_segment.dart';
+import 'package:swim_apps_shared/objects/interval_attributes.dart';
+import 'package:swim_apps_shared/objects/race.dart';
+import 'package:swim_apps_shared/objects/race_segment.dart';
+import 'package:swim_apps_shared/objects/stroke.dart';
+import 'package:swim_apps_shared/objects/user/coach.dart';
+import 'package:swim_apps_shared/objects/user/swimmer.dart';
+import 'package:swim_apps_shared/objects/user/user.dart';
 import 'package:swim_apps_shared/swim_apps_shared.dart';
+import 'package:swim_apps_shared/swim_session/events/checkpoint.dart';
+import 'package:swim_apps_shared/swim_session/events/event.dart';
 
 import '../../profile/add_swimmer.dart';
 import 'analysis_level.dart';

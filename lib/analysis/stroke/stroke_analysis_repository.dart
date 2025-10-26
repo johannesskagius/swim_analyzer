@@ -35,7 +35,7 @@ class StrokeAnalysisRepository {
   /// ordered by creation date.
   Stream<List<StrokeAnalysis>> getAnalysesForSwimmer(String swimmerId) {
     return _strokeAnalyzesRef
-        .where('userId', isEqualTo: swimmerId)
+        .where('swimmerId', isEqualTo: swimmerId)
         .orderBy('createdAt', descending: true)
         .snapshots()
         .map((snapshot) => snapshot.docs.map((doc) => doc.data()).toList());
